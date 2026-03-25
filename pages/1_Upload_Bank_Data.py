@@ -9,14 +9,15 @@ from config.fund_config import EXPENSE_CATEGORIES
 st.header("Upload Bank Data")
 
 st.markdown("""
-Upload your bank CSV export(s) for each month since 12/31/2025.
+Upload your bank export(s) for each month since 12/31/2025.
+Accepts CSV or Excel (.xlsx/.xls) files.
 The app will auto-classify rent, loan payments, and distributions.
 Unrecognized transactions will be flagged for your review.
 """)
 
 uploaded_files = st.file_uploader(
-    "Upload bank CSV(s)",
-    type=["csv"],
+    "Upload bank file(s)",
+    type=["csv", "xlsx", "xls"],
     accept_multiple_files=True,
     help="Export from your bank portal. Expected columns: Post Date, Description, Debit, Credit, Balance"
 )
@@ -26,7 +27,11 @@ if uploaded_files:
 
     for uploaded_file in uploaded_files:
         try:
-            df = pd.read_csv(uploaded_file)
+            filename = uploaded_file.name.lower()
+            if filename.endswith(".csv"):
+                df = pd.read_csv(uploaded_file)
+            else:
+                df = pd.read_excel(uploaded_file)
 
             # Normalize column names
             col_map = {}
