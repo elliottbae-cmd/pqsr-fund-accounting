@@ -60,9 +60,17 @@ if is_qtr_end:
 st.session_state.journal_entries = entries
 
 # Display entries
+grand_total_dr = 0.0
+grand_total_cr = 0.0
+
 for i, entry in enumerate(entries):
     desc = entry["description"]
     edate = entry["date"].strftime("%m/%d/%Y")
+    entry_dr = sum(entry["debits"].values())
+    entry_cr = sum(entry["credits"].values())
+    grand_total_dr += entry_dr
+    grand_total_cr += entry_cr
+
     with st.expander(
         "AJE {}: {} ({})".format(i + 1, desc, edate),
         expanded=True,
@@ -72,33 +80,34 @@ for i, entry in enumerate(entries):
             st.markdown("**Debits:**")
             for acct, amt in entry["debits"].items():
                 st.text("  {}: ${:,.2f}".format(acct, amt))
+            st.markdown("**Total Debits: ${:,.2f}**".format(entry_dr))
         with col2:
             st.markdown("**Credits:**")
             for acct, amt in entry["credits"].items():
                 st.text("  {}: ${:,.2f}".format(acct, amt))
+            st.markdown("**Total Credits: ${:,.2f}**".format(entry_cr))
 
-        # Verify balanced
-        total_dr = sum(entry["debits"].values())
-        total_cr = sum(entry["credits"].values())
-        if abs(total_dr - total_cr) < 0.01:
-            st.success("Balanced: ${:,.2f}".format(total_dr))
+        # Balance check
+        net = entry_dr - entry_cr
+        if abs(net) < 0.01:
+            st.success("In Balance (Net: $0.00)")
         else:
-            st.error(
-                "OUT OF BALANCE - DR: ${:,.2f} / CR: ${:,.2f}".format(
-                    total_dr, total_cr
-                )
-            )
+            st.error("OUT OF BALANCE — Net: ${:,.2f}".format(net))
 
 # Summary
 st.markdown("---")
 st.subheader("Summary")
 st.metric("Total Journal Entries", len(entries))
 
-total_debits = sum(sum(e["debits"].values()) for e in entries)
-total_credits = sum(sum(e["credits"].values()) for e in entries)
-col1, col2 = st.columns(2)
-col1.metric("Total Debits", "${:,.2f}".format(total_debits))
-col2.metric("Total Credits", "${:,.2f}".format(total_credits))
+col1, col2, col3 = st.columns(3)
+col1.metric("Total Debits", "${:,.2f}".format(grand_total_dr))
+col2.metric("Total Credits", "${:,.2f}".format(grand_total_cr))
+grand_net = grand_total_dr - grand_total_cr
+col3.metric("Net", "${:,.2f}".format(grand_net))
+if abs(grand_net) < 0.01:
+    st.success("All journal entries net to zero.")
+else:
+    st.error("AJEs are OUT OF BALANCE by ${:,.2f}".format(grand_net))
 
 # Post button
 if st.button("Post Journal Entries & Save to Database", type="primary"):
@@ -165,4 +174,3 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
                 month_label
             )
         )
-        st.balloons()

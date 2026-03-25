@@ -372,9 +372,17 @@ with tabs[2]:
     if not ajes:
         st.info("No journal entries for this period.")
     else:
+        grand_total_dr = 0.0
+        grand_total_cr = 0.0
+
         for i, entry in enumerate(ajes):
             edate = entry["date"].strftime("%m/%d/%Y")
             desc = entry["description"]
+            entry_dr = sum(entry["debits"].values())
+            entry_cr = sum(entry["credits"].values())
+            grand_total_dr += entry_dr
+            grand_total_cr += entry_cr
+
             with st.expander(
                 "AJE {}: {} ({})".format(i + 1, desc, edate),
                 expanded=(i < 3),
@@ -384,21 +392,36 @@ with tabs[2]:
                     st.markdown("**Debits:**")
                     for acct, amt in entry["debits"].items():
                         st.text("  {}: ${:,.2f}".format(acct, amt))
+                    st.markdown("**Total Debits: ${:,.2f}**".format(entry_dr))
                 with col2:
                     st.markdown("**Credits:**")
                     for acct, amt in entry["credits"].items():
                         st.text("  {}: ${:,.2f}".format(acct, amt))
+                    st.markdown("**Total Credits: ${:,.2f}**".format(entry_cr))
 
-                total_dr = sum(entry["debits"].values())
-                total_cr = sum(entry["credits"].values())
-                if abs(total_dr - total_cr) < 0.01:
-                    st.success("Balanced: ${:,.2f}".format(total_dr))
+                # Balance check
+                net = entry_dr - entry_cr
+                if abs(net) < 0.01:
+                    st.success("In Balance (Net: $0.00)")
                 else:
                     st.error(
-                        "OUT OF BALANCE - DR: ${:,.2f} / CR: ${:,.2f}".format(
-                            total_dr, total_cr
-                        )
+                        "OUT OF BALANCE — Net: ${:,.2f}".format(net)
                     )
+
+        # Grand totals across all AJEs
+        st.markdown("---")
+        st.markdown("##### Period Totals")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Debits", "${:,.2f}".format(grand_total_dr))
+        col2.metric("Total Credits", "${:,.2f}".format(grand_total_cr))
+        grand_net = grand_total_dr - grand_total_cr
+        col3.metric("Net", "${:,.2f}".format(grand_net))
+        if abs(grand_net) < 0.01:
+            st.success("All journal entries net to zero.")
+        else:
+            st.error(
+                "Period AJEs are OUT OF BALANCE by ${:,.2f}".format(grand_net)
+            )
 
 
 # ==================== Bank Activity ====================
@@ -438,43 +461,117 @@ with tabs[3]:
 # ==================== Loan Amortization ====================
 with tabs[4]:
     st.markdown(
-        "### {} | Loan Amortization | {}".format(
+        "### {} | Amortization Schedule | {}".format(
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
         )
     )
 
     amort_schedule = generate_amortization_schedule()
 
-    # Show schedule through the selected period
-    amort_rows = []
-    for entry in amort_schedule:
-        if entry["payment_date"] <= selected_end:
-            amort_rows.append({
-                "Date": entry["payment_date"].strftime("%m/%d/%Y"),
-                "Beg. Bal.": "${:,.2f}".format(entry["beginning_balance"]),
-                "Interest": "${:,.2f}".format(entry["interest"]),
-                "Principal": "${:,.2f}".format(entry["principal"]),
-                "Payment": "${:,.2f}".format(entry["payment"]),
-                "End. Bal.": "${:,.2f}".format(entry["ending_balance"]),
-            })
-
-    if amort_rows:
-        st.dataframe(
-            pd.DataFrame(amort_rows),
-            hide_index=True, use_container_width=True, height=400,
-        )
-
-    # Summary metrics
-    loan_balance = get_ending_balance_at_date(amort_schedule, selected_end)
+    # Summary metrics at top
+    loan_balance_amort = get_ending_balance_at_date(amort_schedule, selected_end)
     total_principal = get_total_principal_paid(amort_schedule, selected_end)
     total_interest = sum(
         e["interest"] for e in amort_schedule if e["payment_date"] <= selected_end
     )
+    total_payments = sum(
+        e["payment"] for e in amort_schedule if e["payment_date"] <= selected_end
+    )
+    payments_made = sum(
+        1 for e in amort_schedule if e["payment_date"] <= selected_end
+    )
+    payments_remaining = len(amort_schedule) - payments_made
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Current Balance", "${:,.2f}".format(loan_balance))
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Current Balance", "${:,.2f}".format(loan_balance_amort))
     col2.metric("Total Principal Paid", "${:,.2f}".format(total_principal))
     col3.metric("Total Interest Paid", "${:,.2f}".format(total_interest))
+    col4.metric("Payments Made / Remaining", "{} / {}".format(
+        payments_made, payments_remaining
+    ))
+
+    st.markdown("---")
+
+    # BS tie-out
+    st.markdown("##### Balance Sheet Tie-Out")
+    bs_note_payable = bs.get("Note Payable - BBV", 0)
+    tie_diff = abs(loan_balance_amort - bs_note_payable)
+    tie_col1, tie_col2, tie_col3 = st.columns(3)
+    tie_col1.metric("Amortization Schedule", "${:,.2f}".format(loan_balance_amort))
+    tie_col2.metric("BS: Note Payable - BBV", "${:,.2f}".format(bs_note_payable))
+    tie_col3.metric("Difference", "${:,.2f}".format(tie_diff))
+    if tie_diff < 0.02:
+        st.success("Amortization schedule ties to the Balance Sheet.")
+    else:
+        st.error(
+            "DOES NOT TIE — Amort schedule vs BS difference: ${:,.2f}".format(tie_diff)
+        )
+
+    st.markdown("---")
+
+    # Annual summary (matches Excel layout: Interest / Principal / Total by year)
+    st.markdown("##### Annual Summary")
+    annual_data = {}
+    for entry in amort_schedule:
+        yr = entry["payment_date"].year
+        if yr not in annual_data:
+            annual_data[yr] = {"interest": 0, "principal": 0, "total": 0}
+        annual_data[yr]["interest"] += entry["interest"]
+        annual_data[yr]["principal"] += entry["principal"]
+        annual_data[yr]["total"] += entry["payment"]
+
+    annual_rows = []
+    for yr in sorted(annual_data.keys()):
+        d = annual_data[yr]
+        is_current = any(
+            e["payment_date"].year == yr and e["payment_date"] <= selected_end
+            for e in amort_schedule
+        )
+        annual_rows.append({
+            "Year": str(yr),
+            "Interest": "${:,.2f}".format(d["interest"]),
+            "Principal": "${:,.2f}".format(d["principal"]),
+            "Total": "${:,.2f}".format(d["total"]),
+            "Status": "Current" if yr == selected_end.year else (
+                "Complete" if yr < selected_end.year else ""
+            ),
+        })
+    st.dataframe(
+        pd.DataFrame(annual_rows),
+        hide_index=True, use_container_width=True, height=300,
+    )
+
+    st.markdown("---")
+
+    # Full monthly schedule with toggle
+    st.markdown("##### Monthly Detail")
+    show_option = st.radio(
+        "Show payments:",
+        ["Through current period", "Full schedule"],
+        horizontal=True,
+    )
+
+    amort_rows = []
+    for entry in amort_schedule:
+        if show_option == "Through current period" and entry["payment_date"] > selected_end:
+            continue
+        is_paid = entry["payment_date"] <= selected_end
+        amort_rows.append({
+            "Date": entry["payment_date"].strftime("%m/%d/%Y"),
+            "Year": str(entry["payment_date"].year),
+            "Beg. Bal.": "${:,.2f}".format(entry["beginning_balance"]),
+            "Interest": "${:,.2f}".format(entry["interest"]),
+            "Principal": "${:,.2f}".format(entry["principal"]),
+            "Payment": "${:,.2f}".format(entry["payment"]),
+            "End. Bal.": "${:,.2f}".format(entry["ending_balance"]),
+            "Status": "Paid" if is_paid else "",
+        })
+
+    if amort_rows:
+        st.dataframe(
+            pd.DataFrame(amort_rows),
+            hide_index=True, use_container_width=True, height=500,
+        )
 
 
 # ==================== Distributions ====================
