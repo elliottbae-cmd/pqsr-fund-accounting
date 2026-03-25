@@ -50,8 +50,10 @@ st.session_state.journal_entries = all_entries
 
 # Display entries
 for i, entry in enumerate(all_entries):
+    desc = entry["description"]
+    edate = entry["date"].strftime("%m/%d/%Y")
     with st.expander(
-        f"AJE {i+1}: {entry['description']} ({entry['date'].strftime('%m/%d/%Y')})",
+        f"AJE {i+1}: {desc} ({edate})",
         expanded=(i < 3),
     ):
         col1, col2 = st.columns(2)

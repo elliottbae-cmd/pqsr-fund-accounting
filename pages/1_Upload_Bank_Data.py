@@ -100,16 +100,24 @@ if uploaded_files:
         # Show auto-classified
         if auto_count > 0:
             st.markdown("#### Auto-Classified")
-            auto_df = pd.DataFrame([
-                {
-                    "Date": t["date"].strftime("%m/%d/%Y") if hasattr(t["date"], "strftime") else str(t["date"]),
+            auto_rows = []
+            for t in classified:
+                if t["confidence"] != "auto":
+                    continue
+                d = t["date"]
+                date_str = d.strftime("%m/%d/%Y") if hasattr(d, "strftime") else str(d)
+                debit_val = t["debit"]
+                credit_val = t["credit"]
+                debit_str = "${:,.2f}".format(debit_val) if debit_val else ""
+                credit_str = "${:,.2f}".format(credit_val) if credit_val else ""
+                auto_rows.append({
+                    "Date": date_str,
                     "Description": t["description"][:60],
-                    "Debit": f"${t['debit']:,.2f}" if t["debit"] else "",
-                    "Credit": f"${t['credit']:,.2f}" if t["credit"] else "",
+                    "Debit": debit_str,
+                    "Credit": credit_str,
                     "Category": t["details"],
-                }
-                for t in classified if t["confidence"] == "auto"
-            ])
+                })
+            auto_df = pd.DataFrame(auto_rows)
             st.dataframe(auto_df, use_container_width=True, hide_index=True)
 
         # Handle unrecognized transactions
@@ -121,11 +129,16 @@ if uploaded_files:
                 if txn["confidence"] != "manual":
                     continue
 
-                with st.expander(
-                    f"{txn['date'].strftime('%m/%d/%Y') if hasattr(txn['date'], 'strftime') else txn['date']} | "
-                    f"{txn['description'][:50]} | "
-                    f"{'Debit: $' + f'{txn[\"debit\"]:,.2f}' if txn['debit'] else 'Credit: $' + f'{txn[\"credit\"]:,.2f}'}"
-                ):
+                txn_date = txn["date"]
+                date_label = txn_date.strftime("%m/%d/%Y") if hasattr(txn_date, "strftime") else str(txn_date)
+                desc_label = txn["description"][:50]
+                if txn["debit"]:
+                    amt_label = "Debit: ${:,.2f}".format(txn["debit"])
+                else:
+                    amt_label = "Credit: ${:,.2f}".format(txn["credit"])
+                expander_label = "{} | {} | {}".format(date_label, desc_label, amt_label)
+
+                with st.expander(expander_label):
                     category = st.selectbox(
                         "Select category",
                         EXPENSE_CATEGORIES,

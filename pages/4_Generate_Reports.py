@@ -82,7 +82,7 @@ st.markdown("Edit the notes below before generating the report.")
 default_notes = [
     f"1.) The Nacogdoches property had an uptick in inquiries in Q4 of 2025. Management will continue to hold firm on pricing. This tenant now has 83 units backing the lease.",
     f"2.) Legacy Chicken (Popeyes NM Tenant) has opened one additional location in Q1 of 2026.",
-    f"3.) Fund expenses for Q{quarter} totaled ${is_accounts.get('Accounting & Tax Fees', 0):,.0f} for CBIZ tax prep fees.",
+    "3.) Fund expenses for Q{q} totaled ${amt:,.0f} for CBIZ tax prep fees.".format(q=quarter, amt=is_accounts.get("Accounting & Tax Fees", 0)),
     f"4.) As of {as_of_date.strftime('%m/%d/%Y')}, the fund has paid down ${total_principal:,.0f} in loan principal.",
     f"5.) The fund has a 6.65% fixed interest rate. Management will continue to monitor rates in {year} to determine if it will be beneficial to refinance the note.",
     "6.) All leases are current.",
@@ -163,15 +163,18 @@ st.subheader(f"Q{quarter} {year} Distribution Summary")
 
 dist_df_data = []
 for inv_key, inv in INVESTORS.items():
+    own_pct = inv["ownership_pct"]
+    inv_dist = current_qtr_dist.get(inv_key, 0)
     dist_df_data.append({
         "Investor": inv["full_name"],
-        "Ownership %": f"{inv['ownership_pct']:.2%}",
-        "Distribution": f"${current_qtr_dist.get(inv_key, 0):,.2f}",
+        "Ownership %": f"{own_pct:.2%}",
+        "Distribution": f"${inv_dist:,.2f}",
     })
+total_dist = current_qtr_dist["total"]
 dist_df_data.append({
     "Investor": "**Total**",
     "Ownership %": "100.00%",
-    "Distribution": f"**${current_qtr_dist['total']:,.2f}**",
+    "Distribution": f"**${total_dist:,.2f}**",
 })
 
 import pandas as pd

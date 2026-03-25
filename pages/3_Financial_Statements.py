@@ -56,7 +56,8 @@ with tab1:
 
     # Assets
     st.markdown("##### ASSETS")
-    assets_data = [["Cash", f"${bs['Cash']:,.2f}"]]
+    cash_val = bs["Cash"]
+    assets_data = [["Cash", f"${cash_val:,.2f}"]]
     st.dataframe(pd.DataFrame(assets_data, columns=["Account", "Amount"]),
                  hide_index=True, use_container_width=True)
 
@@ -64,31 +65,41 @@ with tab1:
     fa_data = []
     for asset in ["Land", "Building", "Land Improvements", "F&F", "Equipment", "Signage"]:
         label = "Furniture & Fixtures" if asset == "F&F" else asset
-        fa_data.append([label, f"${bs[asset]:,.2f}"])
+        asset_val = bs[asset]
+        fa_data.append([label, f"${asset_val:,.2f}"])
     for asset in ["Building", "Land Improvements", "F&F", "Equipment", "Signage"]:
         label = f"{asset} - Accum. Depreciation"
-        fa_data.append([label, f"$({abs(bs[f'{asset} A/D']):,.2f})"])
-    fa_data.append(["**Total Fixed Assets (Net)**", f"**${totals['total_fa_net']:,.2f}**"])
+        ad_val = abs(bs[f"{asset} A/D"])
+        fa_data.append([label, f"$({ad_val:,.2f})"])
+    total_fa_net = totals["total_fa_net"]
+    fa_data.append(["**Total Fixed Assets (Net)**", f"**${total_fa_net:,.2f}**"])
     st.dataframe(pd.DataFrame(fa_data, columns=["Account", "Amount"]),
                  hide_index=True, use_container_width=True)
 
     st.markdown("##### OTHER ASSETS")
+    cap_orig_fee = bs["Capitalized Origination Fee"]
+    accum_amort = abs(bs["Accumulated Amortization"])
+    total_oa = totals["total_other_assets"]
     oa_data = [
-        ["Capitalized Origination Fee", f"${bs['Capitalized Origination Fee']:,.2f}"],
-        ["Accumulated Amortization", f"$({abs(bs['Accumulated Amortization']):,.2f})"],
-        ["**Total Other Assets**", f"**${totals['total_other_assets']:,.2f}**"],
+        ["Capitalized Origination Fee", f"${cap_orig_fee:,.2f}"],
+        ["Accumulated Amortization", f"$({accum_amort:,.2f})"],
+        ["**Total Other Assets**", f"**${total_oa:,.2f}**"],
     ]
     st.dataframe(pd.DataFrame(oa_data, columns=["Account", "Amount"]),
                  hide_index=True, use_container_width=True)
 
-    st.metric("Total Assets", f"${totals['total_assets']:,.2f}")
+    total_assets_val = totals["total_assets"]
+    st.metric("Total Assets", f"${total_assets_val:,.2f}")
 
     st.markdown("---")
     st.markdown("##### LIABILITIES")
+    note_payable = bs["Note Payable - BBV"]
+    due_to_psp = bs["Due to PSP Investments, LLC"]
+    total_liab = totals["total_liabilities"]
     liab_data = [
-        ["Note Payable - BBV", f"${bs['Note Payable - BBV']:,.2f}"],
-        ["Due to PSP Investments, LLC", f"${bs['Due to PSP Investments, LLC']:,.2f}"],
-        ["**Total Liabilities**", f"**${totals['total_liabilities']:,.2f}**"],
+        ["Note Payable - BBV", f"${note_payable:,.2f}"],
+        ["Due to PSP Investments, LLC", f"${due_to_psp:,.2f}"],
+        ["**Total Liabilities**", f"**${total_liab:,.2f}**"],
     ]
     st.dataframe(pd.DataFrame(liab_data, columns=["Account", "Amount"]),
                  hide_index=True, use_container_width=True)
@@ -96,17 +107,22 @@ with tab1:
     st.markdown("##### MEMBERS' EQUITY")
     eq_data = []
     for inv_key in INVESTORS:
-        eq_data.append([f"Contributions - {inv_key}", f"${bs[f'Contributions - {inv_key}']:,.2f}"])
+        contrib_val = bs[f"Contributions - {inv_key}"]
+        eq_data.append([f"Contributions - {inv_key}", f"${contrib_val:,.2f}"])
     for inv_key in INVESTORS:
         val = bs[f"Distributions - {inv_key}"]
         eq_data.append([f"Distributions - {inv_key}", f"$({abs(val):,.2f})"])
-    eq_data.append(["CY Net Income", f"$({abs(bs['CY Net Income']):,.2f})" if bs['CY Net Income'] < 0 else f"${bs['CY Net Income']:,.2f}"])
-    eq_data.append(["Retained Earnings", f"$({abs(bs['Retained Earnings']):,.2f})" if bs['Retained Earnings'] < 0 else f"${bs['Retained Earnings']:,.2f}"])
-    eq_data.append(["**Total Equity**", f"**${totals['total_equity']:,.2f}**"])
+    cy_ni = bs["CY Net Income"]
+    eq_data.append(["CY Net Income", f"$({abs(cy_ni):,.2f})" if cy_ni < 0 else f"${cy_ni:,.2f}"])
+    re_val = bs["Retained Earnings"]
+    eq_data.append(["Retained Earnings", f"$({abs(re_val):,.2f})" if re_val < 0 else f"${re_val:,.2f}"])
+    total_eq = totals["total_equity"]
+    eq_data.append(["**Total Equity**", f"**${total_eq:,.2f}**"])
     st.dataframe(pd.DataFrame(eq_data, columns=["Account", "Amount"]),
                  hide_index=True, use_container_width=True)
 
-    st.metric("Total Liabilities / Equity", f"${totals['total_liabilities_equity']:,.2f}")
+    total_le = totals["total_liabilities_equity"]
+    st.metric("Total Liabilities / Equity", f"${total_le:,.2f}")
 
     # Balance check
     diff = abs(totals["total_assets"] - totals["total_liabilities_equity"])
@@ -118,15 +134,20 @@ with tab1:
 with tab2:
     st.markdown(f"**{FUND_NAME} | Income Statement | {as_of_date.strftime('%m/%d/%Y')}**")
 
+    rental_inc = is_accounts["Rental Income"]
+    interest_exp = is_accounts["Interest Expense"]
+    acct_tax = is_accounts["Accounting & Tax Fees"]
+    bank_fees = is_accounts.get("Bank Fees", 0)
+    depr_exp = is_accounts["Depreciation Expense"]
     is_data = [
         ["**REVENUE**", ""],
-        ["Rental Income", f"${is_accounts['Rental Income']:,.2f}"],
+        ["Rental Income", f"${rental_inc:,.2f}"],
         ["", ""],
         ["**EXPENSES**", ""],
-        ["Interest Expense", f"${is_accounts['Interest Expense']:,.2f}"],
-        ["Accounting & Tax Fees", f"${is_accounts['Accounting & Tax Fees']:,.2f}" if is_accounts['Accounting & Tax Fees'] else "-"],
-        ["Bank Fees", f"${is_accounts.get('Bank Fees', 0):,.2f}" if is_accounts.get('Bank Fees', 0) else "-"],
-        ["Depreciation Expense", f"${is_accounts['Depreciation Expense']:,.2f}"],
+        ["Interest Expense", f"${interest_exp:,.2f}"],
+        ["Accounting & Tax Fees", f"${acct_tax:,.2f}" if acct_tax else "-"],
+        ["Bank Fees", f"${bank_fees:,.2f}" if bank_fees else "-"],
+        ["Depreciation Expense", f"${depr_exp:,.2f}"],
     ]
     total_exp = sum(is_accounts[k] for k in is_accounts if k != "Rental Income")
     is_data.append(["**Total Expenses**", f"**${total_exp:,.2f}**"])
@@ -138,15 +159,20 @@ with tab2:
 with tab3:
     st.markdown(f"**Cash Flow Metrics | Q{quarter} {year}**")
 
+    cf_ebitda = cash_flow["EBITDA"]
+    cf_interest = cash_flow["Interest Expense"]
+    cf_principal = cash_flow["Principal Payments"]
+    cf_fcf = cash_flow["FCF"]
+    cf_dscr = cash_flow["DSCR"]
     cf_data = [
-        ["EBITDA", f"${cash_flow['EBITDA']:,.2f}"],
-        ["Less: Interest Expense", f"$({cash_flow['Interest Expense']:,.2f})"],
-        ["Less: Principal Payments", f"$({cash_flow['Principal Payments']:,.2f})"],
-        ["**Free Cash Flow (FCF)**", f"**${cash_flow['FCF']:,.2f}**"],
+        ["EBITDA", f"${cf_ebitda:,.2f}"],
+        ["Less: Interest Expense", f"$({cf_interest:,.2f})"],
+        ["Less: Principal Payments", f"$({cf_principal:,.2f})"],
+        ["**Free Cash Flow (FCF)**", f"**${cf_fcf:,.2f}**"],
     ]
     st.dataframe(pd.DataFrame(cf_data, columns=["Metric", "Amount"]),
                  hide_index=True, use_container_width=True)
 
-    st.metric("DSCR", f"{cash_flow['DSCR']:.2f}x")
+    st.metric("DSCR", f"{cf_dscr:.2f}x")
     st.metric("Loan Balance", f"${loan_balance:,.2f}")
     st.metric("Total Principal Paid", f"${get_total_principal_paid(amort_schedule, as_of_date):,.2f}")
