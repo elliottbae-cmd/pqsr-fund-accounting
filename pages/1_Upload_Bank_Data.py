@@ -1,16 +1,39 @@
-"""Page 1: Upload and classify bank transactions."""
+"""Page 1: Upload and classify bank transactions — monthly processing."""
 
 import streamlit as st
 import pandas as pd
 from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data
 from config.fund_config import EXPENSE_CATEGORIES
+from database.db import get_next_expected_month, get_posted_periods, is_period_posted
 
 st.header("Upload Bank Data")
 
+# Show posted period history
+posted = get_posted_periods()
+if posted:
+    st.markdown("##### Posted Periods")
+    period_rows = []
+    for p in posted:
+        pd_obj = date.fromisoformat(p["period_date"])
+        period_rows.append({
+            "Period": pd_obj.strftime("%B %Y"),
+            "Posted": p["posted_at"][:10],
+            "Quarter End": "Yes" if p["quarter_end"] else "",
+        })
+    st.dataframe(pd.DataFrame(period_rows), hide_index=True, use_container_width=True)
+    st.markdown("---")
+
+# Auto-detect next month
+next_month = get_next_expected_month()
+st.info(
+    f"**Next period to process:** {next_month.strftime('%B %Y')}\n\n"
+    f"Upload bank activity that includes transactions for {next_month.strftime('%B %Y')}. "
+    f"The system will filter to only this month's transactions."
+)
+
 st.markdown("""
-Upload your bank export(s) for each month since 12/31/2025.
-Accepts CSV or Excel (.xlsx/.xls) files.
+Upload your bank export for the month. Accepts CSV or Excel (.xlsx/.xls) files.
 The app will auto-classify rent, loan payments, and distributions.
 Unrecognized transactions will be flagged for your review.
 """)
@@ -79,17 +102,53 @@ if uploaded_files:
                     "balance": row.get("balance", 0),
                 })
 
-            st.success(f"Loaded {len(df)} transactions from {uploaded_file.name}")
+            st.success(
+                f"Loaded {len(df)} transactions from {uploaded_file.name}"
+            )
 
         except Exception as e:
             st.error(f"Error reading {uploaded_file.name}: {e}")
 
     if all_transactions:
+        # Filter to the target month
+        target_year = next_month.year
+        target_month = next_month.month
+        month_transactions = []
+        other_transactions = []
+
+        for txn in all_transactions:
+            txn_date = txn["date"]
+            if hasattr(txn_date, "year"):
+                if txn_date.year == target_year and txn_date.month == target_month:
+                    month_transactions.append(txn)
+                else:
+                    other_transactions.append(txn)
+            else:
+                other_transactions.append(txn)
+
+        if other_transactions:
+            st.warning(
+                f"{len(other_transactions)} transaction(s) outside "
+                f"{next_month.strftime('%B %Y')} were excluded."
+            )
+
+        if not month_transactions:
+            st.error(
+                f"No transactions found for {next_month.strftime('%B %Y')}. "
+                f"Make sure the file contains transactions for this month."
+            )
+            st.stop()
+
+        st.markdown(
+            f"**Processing {len(month_transactions)} transactions "
+            f"for {next_month.strftime('%B %Y')}**"
+        )
+
         # Sort by date
-        all_transactions.sort(key=lambda x: x["date"])
+        month_transactions.sort(key=lambda x: x["date"])
 
         # Auto-classify
-        classified = classify_bank_data(all_transactions)
+        classified = classify_bank_data(month_transactions)
 
         # Display classified transactions
         st.subheader("Classified Transactions")
@@ -128,41 +187,63 @@ if uploaded_files:
         # Handle unrecognized transactions
         if manual_count > 0:
             st.markdown("#### Needs Manual Classification")
-            st.warning(f"{manual_count} transaction(s) could not be auto-classified.")
+            st.warning(
+                f"{manual_count} transaction(s) could not be auto-classified."
+            )
 
             for i, txn in enumerate(classified):
                 if txn["confidence"] != "manual":
                     continue
 
                 txn_date = txn["date"]
-                date_label = txn_date.strftime("%m/%d/%Y") if hasattr(txn_date, "strftime") else str(txn_date)
+                date_label = (
+                    txn_date.strftime("%m/%d/%Y")
+                    if hasattr(txn_date, "strftime") else str(txn_date)
+                )
                 desc_label = txn["description"][:50]
                 if txn["debit"]:
                     amt_label = "Debit: ${:,.2f}".format(txn["debit"])
                 else:
                     amt_label = "Credit: ${:,.2f}".format(txn["credit"])
-                expander_label = "{} | {} | {}".format(date_label, desc_label, amt_label)
+                expander_label = "{} | {} | {}".format(
+                    date_label, desc_label, amt_label
+                )
 
                 with st.expander(expander_label):
                     category = st.selectbox(
                         "Select category",
                         EXPENSE_CATEGORIES,
-                        key=f"cat_{i}",
+                        key="cat_{}".format(i),
                     )
-                    if st.button("Apply", key=f"apply_{i}"):
-                        txn["category"] = category.lower().replace(" & ", "_").replace(" ", "_")
+                    if st.button("Apply", key="apply_{}".format(i)):
+                        txn["category"] = category.lower().replace(
+                            " & ", "_"
+                        ).replace(" ", "_")
                         txn["expense_category"] = category
                         txn["confidence"] = "manual_classified"
-                        txn["details"] = f"{category} (manually classified)"
-                        st.success(f"Classified as: {category}")
+                        txn["details"] = "{} (manually classified)".format(
+                            category
+                        )
+                        st.success("Classified as: {}".format(category))
 
         # Save to session state
         st.session_state.classified_transactions = classified
+        st.session_state.processing_month = next_month
 
-        if st.button("Confirm Classifications & Generate Journal Entries", type="primary"):
-            unclassified = [t for t in classified if t["confidence"] == "manual"]
+        if st.button(
+            "Confirm Classifications & Generate Journal Entries",
+            type="primary",
+        ):
+            unclassified = [
+                t for t in classified if t["confidence"] == "manual"
+            ]
             if unclassified:
-                st.error("Please classify all transactions before proceeding.")
+                st.error(
+                    "Please classify all transactions before proceeding."
+                )
             else:
                 st.session_state.processing_complete = True
-                st.success("Classifications confirmed! Navigate to 'Review Journal Entries' to continue.")
+                st.success(
+                    "Classifications confirmed! Navigate to "
+                    "'Review Journal Entries' to continue."
+                )
