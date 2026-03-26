@@ -486,13 +486,12 @@ with tabs[4]:
     )
     payments_remaining = len(amort_schedule) - payments_made
 
+    # Use no-decimal formatting so numbers fit in metric cards
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Current Balance", "${:,.2f}".format(loan_balance_amort))
-    col2.metric("Total Principal Paid", "${:,.2f}".format(total_principal))
-    col3.metric("Total Interest Paid", "${:,.2f}".format(total_interest))
-    col4.metric("Payments Made / Remaining", "{} / {}".format(
-        payments_made, payments_remaining
-    ))
+    col1.metric("Balance", "${:,.0f}".format(loan_balance_amort))
+    col2.metric("Principal Paid", "${:,.0f}".format(total_principal))
+    col3.metric("Interest Paid", "${:,.0f}".format(total_interest))
+    col4.metric("Payments", "{} / {}".format(payments_made, payments_remaining))
 
     st.markdown("---")
 
@@ -501,8 +500,8 @@ with tabs[4]:
     bs_note_payable = bs.get("Note Payable - BBV", 0)
     tie_diff = abs(loan_balance_amort - bs_note_payable)
     tie_col1, tie_col2, tie_col3 = st.columns(3)
-    tie_col1.metric("Amortization Schedule", "${:,.2f}".format(loan_balance_amort))
-    tie_col2.metric("BS: Note Payable - BBV", "${:,.2f}".format(bs_note_payable))
+    tie_col1.metric("Amort Schedule", "${:,.0f}".format(loan_balance_amort))
+    tie_col2.metric("BS: Note Payable", "${:,.0f}".format(bs_note_payable))
     tie_col3.metric("Difference", "${:,.2f}".format(tie_diff))
     if tie_diff < 0.02:
         st.success("Amortization schedule ties to the Balance Sheet.")
