@@ -111,6 +111,7 @@ tabs = st.tabs([
     "AJEs",
     "Bank Activity",
     "Loan Amortization",
+    "Fixed Asset Schedule",
     "Distributions",
     "Investor Summary",
 ])
@@ -611,8 +612,141 @@ with tabs[4]:
         )
 
 
-# ==================== Distributions ====================
+# ==================== Fixed Asset Schedule ====================
 with tabs[5]:
+    from engine.depreciation import generate_fa_schedule
+
+    st.markdown(
+        "### {} | Fixed Asset Schedule | {}".format(
+            FUND_NAME, selected_end.strftime("%m/%d/%Y")
+        )
+    )
+
+    fa_data = generate_fa_schedule(selected_end)
+    years = fa_data["years"]
+    year_labels = ["12/31/{}".format(y) for y in years]
+
+    # --- Section 1: Depreciation Expense ---
+    styled_section_header("Depreciation Expense")
+
+    st.markdown("**Total Purchase Price: ${:,.2f}**".format(fa_data["total_purchase_price"]))
+
+    # Header row
+    depr_header = ["Class", "Cost Seg %", "Amount", "Useful Life"] + year_labels
+    depr_rows = []
+    yearly_totals = {y: 0 for y in years}
+
+    for ac in fa_data["asset_classes"]:
+        row = {
+            "Class": ac["class"],
+            "Cost Seg %": "{:.2%}".format(ac["cost_seg_pct"]),
+            "Amount": "${:,.2f}".format(ac["amount"]),
+            "Useful Life": str(ac["useful_life"]) if ac["useful_life"] != "N/A" else "N/A",
+        }
+        for y in years:
+            depr_val = fa_data["depreciation_by_year"].get(y, {}).get(ac["class"], 0)
+            row["12/31/{}".format(y)] = "${:,.2f}".format(depr_val) if depr_val else "-"
+            yearly_totals[y] += depr_val
+        depr_rows.append(row)
+
+    # Totals row
+    total_row = {
+        "Class": "Total",
+        "Cost Seg %": "100.00%",
+        "Amount": "${:,.2f}".format(fa_data["total_purchase_price"]),
+        "Useful Life": "",
+    }
+    for y in years:
+        total_row["12/31/{}".format(y)] = "${:,.2f}".format(yearly_totals[y])
+    depr_rows.append(total_row)
+
+    st.dataframe(
+        pd.DataFrame(depr_rows),
+        hide_index=True, use_container_width=True,
+    )
+
+    styled_divider()
+
+    # --- Section 2: Accumulated Depreciation ---
+    styled_section_header("Accumulated Depreciation")
+
+    ad_rows = []
+    ad_yearly_totals = {y: 0 for y in years}
+
+    for ac in fa_data["asset_classes"]:
+        row = {
+            "Class": ac["class"],
+        }
+        for y in years:
+            ad_val = fa_data["accum_depr_by_year"].get(y, {}).get(ac["class"], 0)
+            row["12/31/{}".format(y)] = "$({:,.2f})".format(ad_val) if ad_val else "-"
+            ad_yearly_totals[y] += ad_val
+        ad_rows.append(row)
+
+    # Totals row
+    ad_total_row = {"Class": "Total A/D"}
+    for y in years:
+        ad_total_row["12/31/{}".format(y)] = "$({:,.2f})".format(ad_yearly_totals[y])
+    ad_rows.append(ad_total_row)
+
+    st.dataframe(
+        pd.DataFrame(ad_rows),
+        hide_index=True, use_container_width=True,
+    )
+
+    styled_divider()
+
+    # --- Section 3: Summary & BS Tie-Out ---
+    styled_section_header("Net Book Value & Balance Sheet Tie-Out")
+
+    summary_rows = []
+    total_cost = 0
+    total_ad = 0
+    total_nbv = 0
+    for s in fa_data["summary"]:
+        summary_rows.append({
+            "Asset Class": s["class"],
+            "Cost Basis": "${:,.2f}".format(s["amount"]),
+            "Accum. Depr.": "$({:,.2f})".format(s["current_ad"]) if s["current_ad"] else "-",
+            "Net Book Value": "${:,.2f}".format(s["nbv"]),
+        })
+        total_cost += s["amount"]
+        total_ad += s["current_ad"]
+        total_nbv += s["nbv"]
+
+    summary_rows.append({
+        "Asset Class": "Total",
+        "Cost Basis": "${:,.2f}".format(total_cost),
+        "Accum. Depr.": "$({:,.2f})".format(total_ad),
+        "Net Book Value": "${:,.2f}".format(total_nbv),
+    })
+
+    st.dataframe(
+        pd.DataFrame(summary_rows),
+        hide_index=True, use_container_width=True,
+    )
+
+    # BS Tie-Out
+    bs_fa_net = totals.get("total_fa_net", 0)
+    fa_schedule_nbv = total_nbv
+    diff = abs(bs_fa_net - fa_schedule_nbv)
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("FA Schedule NBV", "${:,.0f}".format(fa_schedule_nbv))
+    col2.metric("BS: Fixed Assets (Net)", "${:,.0f}".format(bs_fa_net))
+    col3.metric("Difference", "${:,.2f}".format(diff))
+
+    if diff < 1.00:
+        st.success("Fixed Asset Schedule ties to the Balance Sheet.")
+    else:
+        st.warning(
+            "Difference of ${:,.2f} between FA Schedule and BS. "
+            "This may be due to partial-year inception timing.".format(diff)
+        )
+
+
+# ==================== Distributions ====================
+with tabs[6]:
     st.markdown(
         "### {} | Distributions | {}".format(
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
@@ -693,7 +827,7 @@ with tabs[5]:
 
 
 # ==================== Investor Summary ====================
-with tabs[6]:
+with tabs[7]:
     st.markdown(
         "### {} | Investor Summary | {}".format(
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
