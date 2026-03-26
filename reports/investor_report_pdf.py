@@ -137,14 +137,17 @@ def generate_investor_report(
     story = []
 
     # ==================== PAGE 1: COVER ====================
-    story.append(Spacer(1, 1.2 * inch))
+    # Vertically center: usable height = 9.5in
+    # Logo 4.4in + gap 0.35in + title box ~1.5in = ~6.25in
+    # Top spacer = (9.5 - 6.25) / 2 = ~1.6in
+    story.append(Spacer(1, 1.6 * inch))
 
     # Logo above the cover box
     if os.path.exists(LOGO_PATH):
-        logo = Image(LOGO_PATH, width=2.2 * inch, height=2.2 * inch)
+        logo = Image(LOGO_PATH, width=4.4 * inch, height=4.4 * inch)
         logo.hAlign = 'CENTER'
         story.append(logo)
-        story.append(Spacer(1, 0.3 * inch))
+        story.append(Spacer(1, 0.35 * inch))
     else:
         story.append(Spacer(1, 0.5 * inch))
 
