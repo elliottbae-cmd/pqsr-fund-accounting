@@ -329,11 +329,31 @@ if st.button(
             re_after=re_after_close,
         )
 
+        # Update the December BS snapshot to reflect the close
+        # (CY NI → 0, RE absorbs the income/loss)
+        updated_bs = dict(bs)
+        updated_bs["CY Net Income"] = 0.0
+        updated_bs["Retained Earnings"] = re_after_close
+        from database.db import get_connection
+        dec_pd_str = dec_period.isoformat()
+        with get_connection() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO balance_sheet_snapshots "
+                "(period_date, account, amount) VALUES (?, ?, ?)",
+                (dec_pd_str, "CY Net Income", 0.0)
+            )
+            conn.execute(
+                "INSERT OR REPLACE INTO balance_sheet_snapshots "
+                "(period_date, account, amount) VALUES (?, ?, ?)",
+                (dec_pd_str, "Retained Earnings", re_after_close)
+            )
+
         st.success(
             "Fiscal Year {} has been closed and locked.\n\n"
             "- CY Net Income of ${:,.2f} closed to Retained Earnings\n"
             "- Retained Earnings: ${:,.2f} → ${:,.2f}\n"
-            "- All {} periods are now locked".format(
+            "- All {} periods are now locked\n"
+            "- December BS snapshot updated".format(
                 selected_year,
                 cy_net_income,
                 retained_earnings,

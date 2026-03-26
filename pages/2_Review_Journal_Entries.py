@@ -14,8 +14,7 @@ from engine.loan_amortization import (
     get_ending_balance_at_date, get_total_principal_paid,
 )
 from engine.distributions import calculate_quarterly_distribution
-from config.fund_config import INVESTORS, DISTRIBUTION_HISTORY
-from config.baseline_data import TOTAL_DISTRIBUTIONS_THROUGH_BASELINE
+from config.fund_config import INVESTORS
 from database.db import (
     save_period, is_period_posted, load_all_journal_entries_through,
     get_posted_periods,
@@ -190,9 +189,11 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
                 prior_is = load_income_statement(prior_period)
                 if prior_is:
                     quarterly_rent = is_accounts["Rental Income"] - prior_is.get("Rental Income", 0)
+            # Use only loan payments for months actually posted in this quarter
+            # (not full quarter if only partially posted)
             distributions = calculate_quarterly_distribution(
                 quarterly_rent,
-                sum(p["payment"] for p in quarterly_payments),
+                sum(p["payment"] for p in relevant_payments),
             )
 
         # Save everything to database

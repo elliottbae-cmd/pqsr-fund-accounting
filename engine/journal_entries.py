@@ -113,12 +113,19 @@ def generate_monthly_ajes(classified_transactions, month_date):
 
 
 def generate_depreciation_aje(quarter_end_date):
-    """Generate the quarterly depreciation journal entry."""
+    """Generate the quarterly depreciation and origination fee amortization entry."""
     debits, credits = get_quarterly_depreciation()
+
+    # Add origination fee amortization ($49,750 / 25 years / 4 quarters = $497.50/qtr)
+    quarterly_orig_amort = LOAN.get("origination_fee_quarterly_amort", 0)
+    if quarterly_orig_amort > 0:
+        debits["Origination Fee - Amort"] = debits.get("Origination Fee - Amort", 0) + quarterly_orig_amort
+        credits["Accumulated Amortization"] = credits.get("Accumulated Amortization", 0) + quarterly_orig_amort
+
     quarter_num = (quarter_end_date.month - 1) // 3 + 1
     return {
         "date": quarter_end_date,
-        "description": "To record Q{} book depreciation".format(quarter_num),
+        "description": "To record Q{} book depreciation & amortization".format(quarter_num),
         "debits": debits,
         "credits": credits,
     }

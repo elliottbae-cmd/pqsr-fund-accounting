@@ -92,12 +92,16 @@ LOAN = {
     "maturity_date": date(2028, 12, 31),
     "first_payment_date": date(2024, 1, 19),
     "lender": "BBV",
+    "origination_fee_quarterly_amort": 497.50,
 }
 
 # --- Origination Fee ---
 ORIGINATION_FEE = {
     "amount": 49750.00,
     "amortization_start": date(2024, 1, 19),
+    "amortization_end": date(2048, 12, 31),
+    "annual_amortization": 1990.00,
+    "quarterly_amortization": 497.50,
     "accumulated_amortization_12_31_2025": 2072.916667,
 }
 

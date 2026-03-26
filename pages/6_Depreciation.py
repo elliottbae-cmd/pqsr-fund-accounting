@@ -48,8 +48,11 @@ if not posted_periods:
     st.stop()
 
 # Find quarter-end months that have been posted but don't have depreciation booked
-from database.db import is_year_closed
+# All 3 months of the quarter must be posted before depreciation can be booked
+from database.db import is_year_closed, is_period_posted
 eligible_quarters = []
+posted_period_dates = set(p["period_date"] for p in posted_periods)
+
 for p in posted_periods:
     pd_obj = date.fromisoformat(p["period_date"])
     if pd_obj.month in (3, 6, 9, 12):
@@ -59,6 +62,14 @@ for p in posted_periods:
         quarter = (pd_obj.month - 1) // 3 + 1
         quarter_key = "Q{} {}".format(quarter, pd_obj.year)
         if not is_depreciation_posted(quarter_key):
+            # Verify all 3 months of this quarter are posted
+            q_start = (quarter - 1) * 3 + 1
+            all_posted = all(
+                date(pd_obj.year, m, 1).isoformat() in posted_period_dates
+                for m in range(q_start, q_start + 3)
+            )
+            if not all_posted:
+                continue
             last_day = date(pd_obj.year, pd_obj.month,
                             monthrange(pd_obj.year, pd_obj.month)[1])
             eligible_quarters.append({
