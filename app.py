@@ -16,6 +16,9 @@ st.set_page_config(
 st.title("PQSR Fund I, LLC")
 st.subheader("Accounting & Investor Reporting")
 
+# Override sidebar label (Streamlit uses filename by default)
+st.sidebar.markdown("# Accounting")
+
 st.markdown("---")
 
 # Show current status

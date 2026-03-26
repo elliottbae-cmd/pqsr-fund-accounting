@@ -441,5 +441,69 @@ def load_all_distributions():
     return result
 
 
+def load_all_balance_sheets():
+    """Load balance sheets for all posted periods, keyed by period_date string."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT period_date, account, amount FROM balance_sheet_snapshots "
+            "ORDER BY period_date"
+        ).fetchall()
+    result = {}
+    for r in rows:
+        pd = r["period_date"]
+        if pd not in result:
+            result[pd] = {}
+        result[pd][r["account"]] = r["amount"]
+    return result
+
+
+def load_all_income_statements():
+    """Load income statements for all posted periods, keyed by period_date string."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT period_date, account, amount FROM income_statement_snapshots "
+            "ORDER BY period_date"
+        ).fetchall()
+    result = {}
+    for r in rows:
+        pd = r["period_date"]
+        if pd not in result:
+            result[pd] = {}
+        result[pd][r["account"]] = r["amount"]
+    return result
+
+
+def load_all_cash_flows():
+    """Load cash flow snapshots for all posted periods, keyed by period_date string."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT period_date, metric, value FROM cash_flow_snapshots "
+            "ORDER BY period_date"
+        ).fetchall()
+    result = {}
+    for r in rows:
+        pd = r["period_date"]
+        if pd not in result:
+            result[pd] = {}
+        result[pd][r["metric"]] = r["value"]
+    return result
+
+
+def load_all_totals():
+    """Load totals snapshots for all posted periods, keyed by period_date string."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT period_date, metric, value FROM totals_snapshots "
+            "ORDER BY period_date"
+        ).fetchall()
+    result = {}
+    for r in rows:
+        pd = r["period_date"]
+        if pd not in result:
+            result[pd] = {}
+        result[pd][r["metric"]] = r["value"]
+    return result
+
+
 # Initialize on import
 init_db()
