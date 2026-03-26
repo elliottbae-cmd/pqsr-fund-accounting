@@ -191,9 +191,17 @@ for i, note in enumerate(default_notes):
 
 # FMV override
 st.subheader("Fair Market Value")
-fmv = st.number_input(
-    "Est. FMV of Assets Held", value=FMV_ASSETS, step=1000.0, format="%.0f"
+fmv_default = "{:,.0f}".format(FMV_ASSETS)
+fmv_input = st.text_input(
+    "Est. FMV of Assets Held",
+    value=fmv_default,
+    help="Enter dollar amount (commas optional)",
 )
+try:
+    fmv = float(fmv_input.replace(",", "").replace("$", ""))
+except ValueError:
+    st.error("Please enter a valid number.")
+    fmv = FMV_ASSETS
 
 st.markdown("---")
 
