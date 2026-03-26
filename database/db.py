@@ -111,6 +111,12 @@ def init_db():
                 amount REAL NOT NULL,
                 PRIMARY KEY (period_date, investor_key)
             );
+
+            CREATE TABLE IF NOT EXISTS depreciation_posted (
+                quarter_key TEXT PRIMARY KEY,
+                posted_at TEXT NOT NULL,
+                total_depreciation REAL NOT NULL
+            );
         """)
 
 
@@ -505,3 +511,63 @@ def load_all_totals():
             result[pd] = {}
         result[pd][r["metric"]] = r["value"]
     return result
+
+
+# --- Depreciation Tracking ---
+
+def is_depreciation_posted(quarter_key):
+    """Check if depreciation has been posted for a quarter (e.g., 'Q1 2026')."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM depreciation_posted WHERE quarter_key = ?",
+            (quarter_key,)
+        ).fetchone()
+    return row is not None
+
+
+def get_posted_depreciation():
+    """Return all quarters with posted depreciation."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM depreciation_posted ORDER BY quarter_key"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def save_depreciation_posted(quarter_key, total_depreciation):
+    """Record that depreciation has been posted for a quarter."""
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO depreciation_posted "
+            "(quarter_key, posted_at, total_depreciation) VALUES (?, ?, ?)",
+            (quarter_key, datetime.now().isoformat(), total_depreciation)
+        )
+
+
+def save_depreciation_journal_entry(quarter_end_date, entry):
+    """Save a depreciation journal entry to the database.
+
+    The entry is stored under the quarter-end month's period_date.
+    """
+    pd_str = date(quarter_end_date.year, quarter_end_date.month, 1).isoformat()
+
+    with get_connection() as conn:
+        entry_date_str = quarter_end_date.isoformat()
+        cursor = conn.execute(
+            "INSERT INTO journal_entries (period_date, entry_date, description, entry_type) "
+            "VALUES (?, ?, ?, 'depreciation')",
+            (pd_str, entry_date_str, entry["description"])
+        )
+        entry_id = cursor.lastrowid
+        for acct, amt in entry.get("debits", {}).items():
+            conn.execute(
+                "INSERT INTO journal_entry_lines (entry_id, account, debit_amount) "
+                "VALUES (?, ?, ?)",
+                (entry_id, acct, amt)
+            )
+        for acct, amt in entry.get("credits", {}).items():
+            conn.execute(
+                "INSERT INTO journal_entry_lines (entry_id, account, credit_amount) "
+                "VALUES (?, ?, ?)",
+                (entry_id, acct, amt)
+            )

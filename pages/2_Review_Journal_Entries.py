@@ -54,13 +54,10 @@ entries = generate_monthly_ajes(classified, month_date)
 # Check if this month ends a quarter
 is_qtr_end = processing_month.month in (3, 6, 9, 12)
 if is_qtr_end:
-    last_day = date(
-        month_date.year, month_date.month,
-        monthrange(month_date.year, month_date.month)[1]
+    st.info(
+        "This is a quarter-end month. After posting, go to the "
+        "**Depreciation** page to review and book the quarterly depreciation entry."
     )
-    depr_entry = generate_depreciation_aje(last_day)
-    entries.append(depr_entry)
-    st.info("Quarter-end month: depreciation entry included.")
 
 st.session_state.journal_entries = entries
 
