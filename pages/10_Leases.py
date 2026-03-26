@@ -8,14 +8,13 @@ import pandas as pd
 from datetime import date
 from config.lease_data import (
     LEASES, get_monthly_rent_for_date,
-    get_next_escalation_date, get_lease_alerts,
+    get_next_escalation_date,
 )
 from config.fund_config import FUND_NAME
 from config.styles import (
     inject_custom_css, show_sidebar_branding, styled_page_header,
     styled_section_header, styled_divider,
 )
-from database.db import is_alert_cleared, clear_alert, get_cleared_alerts
 
 inject_custom_css()
 show_sidebar_branding()
@@ -23,11 +22,9 @@ styled_page_header("Leases", "Lease Management & Monitoring")
 
 today = date.today()
 
-# Four sub-tabs
-tab_schedules, tab_abstracts, tab_alerts = st.tabs([
+tab_schedules, tab_abstracts = st.tabs([
     "Rent Schedules",
     "Lease Abstracts",
-    "Alerts",
 ])
 
 
@@ -252,118 +249,3 @@ with tab_abstracts:
                 st.markdown("---")
                 st.info("This lease includes a **Right of First Refusal** for the tenant.")
 
-
-# ==================== ALERTS ====================
-with tab_alerts:
-    st.markdown("### {} | Lease Alerts".format(FUND_NAME))
-    st.caption(
-        "Monitoring rent escalations, lease expirations, and renewal option deadlines. "
-        "Alerts trigger at 12 months and again at 7 months."
-    )
-
-    # Generate unique key for each alert
-    def _alert_key(alert):
-        return "{}_{}_{}".format(
-            alert["type"].replace(" ", "_"),
-            alert["psf_code"].replace(" ", "_"),
-            alert["date"].isoformat(),
-        )
-
-    all_alerts = get_lease_alerts(today, alert_months_early=12, alert_months_reminder=7)
-    cleared = get_cleared_alerts()
-
-    # Filter out cleared alerts
-    active_alerts = [a for a in all_alerts if _alert_key(a) not in cleared]
-    cleared_count = len(all_alerts) - len(active_alerts)
-
-    if not active_alerts:
-        if cleared_count > 0:
-            st.success(
-                "All {} alert(s) have been cleared.".format(cleared_count)
-            )
-        else:
-            st.success("No active alerts. All lease events are more than 12 months away.")
-    else:
-        # Separate high urgency vs normal
-        high_alerts = [a for a in active_alerts if a["urgency"] == "high"]
-        normal_alerts = [a for a in active_alerts if a["urgency"] == "normal"]
-
-        if high_alerts:
-            styled_section_header("Urgent (7 Months or Less)")
-            for alert in high_alerts:
-                col_alert, col_btn = st.columns([5, 1])
-                with col_alert:
-                    st.error(
-                        "**{} — {} ({})** | {} months | {} | {}".format(
-                            alert["type"],
-                            alert["property"],
-                            alert["psf_code"],
-                            alert["months_until"],
-                            alert["date"].strftime("%m/%d/%Y"),
-                            alert["description"],
-                        )
-                    )
-                with col_btn:
-                    if st.button(
-                        "Clear",
-                        key="clear_{}".format(_alert_key(alert)),
-                    ):
-                        clear_alert(_alert_key(alert))
-                        st.rerun()
-
-        if normal_alerts:
-            styled_section_header("Upcoming (12 Months or Less)")
-            for alert in normal_alerts:
-                col_alert, col_btn = st.columns([5, 1])
-                with col_alert:
-                    st.warning(
-                        "**{} — {} ({})** | {} months | {} | {}".format(
-                            alert["type"],
-                            alert["property"],
-                            alert["psf_code"],
-                            alert["months_until"],
-                            alert["date"].strftime("%m/%d/%Y"),
-                            alert["description"],
-                        )
-                    )
-                with col_btn:
-                    if st.button(
-                        "Clear",
-                        key="clear_{}".format(_alert_key(alert)),
-                    ):
-                        clear_alert(_alert_key(alert))
-                        st.rerun()
-
-    # Show cleared count and reset option
-    if cleared_count > 0:
-        st.caption("{} alert(s) cleared.".format(cleared_count))
-        if st.button("Restore All Cleared Alerts"):
-            from database.db import clear_all_alerts as _reset_alerts
-            _reset_alerts()
-            st.rerun()
-
-    styled_divider()
-
-    # Full upcoming events timeline (next 5 years)
-    styled_section_header("Lease Event Timeline — Next 5 Years")
-
-    timeline_alerts = get_lease_alerts(today, alert_months_early=60, alert_months_reminder=7)
-
-    if timeline_alerts:
-        timeline_rows = []
-        for alert in timeline_alerts:
-            ak = _alert_key(alert)
-            timeline_rows.append({
-                "Date": alert["date"].strftime("%m/%d/%Y"),
-                "Type": alert["type"],
-                "Property": "{} ({})".format(alert["property"], alert["psf_code"]),
-                "Months": alert["months_until"],
-                "Details": alert["description"],
-                "Status": "Cleared" if ak in cleared else "Active",
-            })
-        st.dataframe(
-            pd.DataFrame(timeline_rows),
-            hide_index=True, use_container_width=True,
-        )
-    else:
-        st.info("No lease events in the next 5 years.")
