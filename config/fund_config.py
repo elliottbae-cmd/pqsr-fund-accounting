@@ -1,5 +1,4 @@
 from datetime import date
-from decimal import Decimal
 
 FUND_NAME = "PQSR Fund I, LLC"
 FUND_INCEPTION_DATE = date(2023, 10, 19)

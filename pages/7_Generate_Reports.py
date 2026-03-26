@@ -1,4 +1,4 @@
-"""Page 4: Generate and download investor report PDF and Excel workbook."""
+"""Page 7: Generate and download investor report PDF and Excel workbook."""
 
 import streamlit as st
 from config.auth import check_password
@@ -107,9 +107,16 @@ total_principal = get_total_principal_paid(amort_schedule, as_of_date)
 quarterly_payments = get_payments_for_quarter(amort_schedule, year, quarter)
 quarterly_principal = sum(p["principal"] for p in quarterly_payments)
 
-# Distribution calculation
+# Distribution calculation — use quarterly rent, not YTD cumulative
+quarterly_rent = is_accounts.get("Rental Income", 0)
+if quarter > 1:
+    prior_qtr_end_month = (quarter - 1) * 3
+    prior_period = date(selected_period.year, prior_qtr_end_month, 1)
+    prior_is = load_income_statement(prior_period)
+    if prior_is:
+        quarterly_rent = is_accounts.get("Rental Income", 0) - prior_is.get("Rental Income", 0)
 current_qtr_dist = calculate_quarterly_distribution(
-    is_accounts.get("Rental Income", 0),
+    quarterly_rent,
     sum(p["payment"] for p in quarterly_payments),
 )
 

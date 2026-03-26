@@ -110,7 +110,9 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
     _write_row(ws_is, r, "Rental Income", is_accounts["Rental Income"]); r += 2
 
     ws_is.cell(row=r, column=1, value="EXPENSES").font = BOLD_FONT; r += 1
-    for exp in ["Interest Expense", "Accounting & Tax Fees", "Bank Fees", "Depreciation Expense"]:
+    for exp in ["Interest Expense", "Appraisals", "Accounting & Tax Fees",
+                 "Bank Fees", "Taxes & Licenses", "Survey Fees",
+                 "Origination Fee - Amort", "Depreciation Expense", "Other"]:
         val = is_accounts.get(exp, 0)
         _write_row(ws_is, r, exp, val if val else 0); r += 1
 

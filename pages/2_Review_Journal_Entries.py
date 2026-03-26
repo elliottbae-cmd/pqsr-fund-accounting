@@ -170,8 +170,19 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
         # Distributions (quarter-end only)
         distributions = None
         if is_qtr_end:
+            # Calculate quarterly rent (not YTD cumulative)
+            # For Q1: YTD rent IS the quarterly rent (IS resets at year boundary)
+            # For Q2-Q4: quarterly rent = current YTD - prior quarter-end YTD
+            quarterly_rent = is_accounts["Rental Income"]
+            if quarter > 1:
+                prior_qtr_end_month = (quarter - 1) * 3
+                prior_period = date(year, prior_qtr_end_month, 1)
+                from database.db import load_income_statement
+                prior_is = load_income_statement(prior_period)
+                if prior_is:
+                    quarterly_rent = is_accounts["Rental Income"] - prior_is.get("Rental Income", 0)
             distributions = calculate_quarterly_distribution(
-                is_accounts["Rental Income"],
+                quarterly_rent,
                 sum(p["payment"] for p in quarterly_payments),
             )
 

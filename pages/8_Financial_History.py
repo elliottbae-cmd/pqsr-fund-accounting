@@ -1,4 +1,4 @@
-"""Page 5: Financial History — mirrors the Excel workbook layout with roll-forward columns."""
+"""Page 8: Financial History — mirrors the Excel workbook layout with roll-forward columns."""
 
 import streamlit as st
 from config.auth import check_password

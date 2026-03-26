@@ -57,8 +57,9 @@ This app automates the monthly accounting and quarterly investor reporting for P
 | 3 | **Financials - Current** | View the latest Balance Sheet, Income Statement, and cash flow |
 | 4 | **Financials - Monthly** | Side-by-side monthly comparison |
 | 5 | **Financials - Quarterly** | Q1-Q4 views with partial quarter support |
-| 6 | **Generate Reports** | Download the quarterly investor PDF and Excel workbook |
-| 7 | **Financial History** | Browse all posted periods with full workbook-style views |
+| 6 | **Depreciation** | Review and book quarterly depreciation entries |
+| 7 | **Generate Reports** | Download the quarterly investor PDF and Excel workbook |
+| 8 | **Financial History** | Browse all posted periods with full workbook-style views |
 
 **Status:** {} period(s) posted through {}. Next up: **{}**.
 """.format(

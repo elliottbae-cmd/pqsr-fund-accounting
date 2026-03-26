@@ -216,9 +216,12 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
             )
 
         # 3. Journal entries
-        # Delete old entries for this period
+        # Delete old NON-DEPRECIATION entries for this period.
+        # Depreciation entries are managed separately via the Depreciation page
+        # and must be preserved when a monthly period is re-posted.
         old_ids = [r["id"] for r in conn.execute(
-            "SELECT id FROM journal_entries WHERE period_date = ?", (pd_str,)
+            "SELECT id FROM journal_entries WHERE period_date = ? AND entry_type != 'depreciation'",
+            (pd_str,)
         ).fetchall()]
         if old_ids:
             placeholders = ",".join("?" * len(old_ids))
@@ -226,7 +229,10 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
                 "DELETE FROM journal_entry_lines WHERE entry_id IN ({})".format(placeholders),
                 old_ids
             )
-            conn.execute("DELETE FROM journal_entries WHERE period_date = ?", (pd_str,))
+            conn.execute(
+                "DELETE FROM journal_entries WHERE period_date = ? AND entry_type != 'depreciation'",
+                (pd_str,)
+            )
 
         for entry in journal_entries:
             entry_date = entry["date"]
