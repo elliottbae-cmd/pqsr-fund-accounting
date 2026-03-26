@@ -1,6 +1,9 @@
 """Page 1: Upload and classify bank transactions — monthly processing."""
 
 import streamlit as st
+from config.auth import check_password
+if not check_password():
+    st.stop()
 import pandas as pd
 from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data

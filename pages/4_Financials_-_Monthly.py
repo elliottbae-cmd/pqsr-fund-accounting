@@ -1,6 +1,9 @@
 """Page 4: Financials - Monthly — side-by-side month columns for BS, IS, and Cash Flow."""
 
 import streamlit as st
+from config.auth import check_password
+if not check_password():
+    st.stop()
 import pandas as pd
 from datetime import date
 from calendar import monthrange

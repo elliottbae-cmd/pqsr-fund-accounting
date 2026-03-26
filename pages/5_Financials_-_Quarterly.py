@@ -1,6 +1,9 @@
 """Page 5: Financials - Quarterly — Q1-Q4 sub-reports with partial quarter support."""
 
 import streamlit as st
+from config.auth import check_password
+if not check_password():
+    st.stop()
 import pandas as pd
 from datetime import date
 from calendar import monthrange

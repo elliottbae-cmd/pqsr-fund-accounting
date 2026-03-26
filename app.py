@@ -1,6 +1,12 @@
 """PQSR Fund I — Accounting Automation App"""
 
 import streamlit as st
+from config.auth import check_password
+
+# Password gate — must pass before anything else loads
+if not check_password():
+    st.stop()
+
 from database.db import init_db, get_posted_periods, get_next_expected_month
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_divider
 

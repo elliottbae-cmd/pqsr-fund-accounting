@@ -1,6 +1,9 @@
 """Page 5: Financial History — mirrors the Excel workbook layout with roll-forward columns."""
 
 import streamlit as st
+from config.auth import check_password
+if not check_password():
+    st.stop()
 import pandas as pd
 from datetime import date
 from calendar import monthrange
