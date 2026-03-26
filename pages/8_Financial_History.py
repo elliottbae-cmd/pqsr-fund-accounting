@@ -486,12 +486,15 @@ with tabs[4]:
     )
     payments_remaining = len(amort_schedule) - payments_made
 
-    # Use no-decimal formatting so numbers fit in metric cards
-    col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Balance", "${:,.0f}".format(loan_balance_amort))
-    col2.metric("Principal Paid", "${:,.0f}".format(total_principal))
-    col3.metric("Interest Paid", "${:,.0f}".format(total_interest))
-    col4.metric("Payments", "{} / {}".format(payments_made, payments_remaining))
+    # Use 3-column rows so numbers have room to display fully
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Current Balance", "${:,.0f}".format(loan_balance_amort))
+    col2.metric("Total Principal Paid", "${:,.0f}".format(total_principal))
+    col3.metric("Total Interest Paid", "${:,.0f}".format(total_interest))
+    col4, col5, col6 = st.columns(3)
+    col4.metric("Total Payments", "${:,.0f}".format(total_payments))
+    col5.metric("Payments Made", str(payments_made))
+    col6.metric("Payments Remaining", str(payments_remaining))
 
     st.markdown("---")
 
