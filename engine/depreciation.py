@@ -12,7 +12,7 @@ def get_quarterly_depreciation():
     credits = {}
     for asset_class, info in FIXED_ASSETS.items():
         if info["quarterly_depreciation"] > 0:
-            credits[f"{asset_class} A/D"] = info["quarterly_depreciation"]
+            credits["{} A/D".format(asset_class)] = info["quarterly_depreciation"]
     return debits, credits
 
 
@@ -25,7 +25,7 @@ def get_accumulated_depreciation_at_quarter(quarters_since_inception):
     result = {}
     for asset_class, info in FIXED_ASSETS.items():
         if info["quarterly_depreciation"] > 0:
-            result[f"{asset_class} A/D"] = -(
+            result["{} A/D".format(asset_class)] = -(
                 info["quarterly_depreciation"] * quarters_since_inception
             )
     return result

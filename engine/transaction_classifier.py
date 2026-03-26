@@ -82,12 +82,12 @@ def classify_transaction(description, debit, credit):
             }
             if rule["category"] == "rent":
                 prop = PROPERTIES[rule["property"]]
-                result["details"] = f"Rent - {prop['name']}"
+                result["details"] = "Rent - {}".format(prop["name"])
             elif rule["category"] == "loan_payment":
                 result["details"] = "Loan Payment (UMB Bank)"
             elif rule["category"] == "distribution":
                 inv = INVESTORS[rule["investor"]]
-                result["details"] = f"Distribution - {inv['full_name']}"
+                result["details"] = "Distribution - {}".format(inv["full_name"])
             elif rule["category"] == "accounting_fees":
                 result["details"] = "Accounting & Tax Fees (CBIZ)"
             return result
@@ -103,7 +103,7 @@ def classify_transaction(description, debit, credit):
                 "property": prop_key,
                 "investor": None,
                 "confidence": "auto",
-                "details": f"Rent - {prop['name']} (matched by amount)",
+                "details": "Rent - {} (matched by amount)".format(prop["name"]),
             }
 
     # Unrecognized

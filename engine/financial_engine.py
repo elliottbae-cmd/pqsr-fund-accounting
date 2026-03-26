@@ -120,8 +120,8 @@ def compute_totals(bs):
     )
 
     equity_items = (
-        sum(bs.get(f"Contributions - {k}", 0) for k in INVESTORS)
-        + sum(bs.get(f"Distributions - {k}", 0) for k in INVESTORS)
+        sum(bs.get("Contributions - {}".format(k), 0) for k in INVESTORS)
+        + sum(bs.get("Distributions - {}".format(k), 0) for k in INVESTORS)
         + bs["CY Net Income"]
         + bs["Retained Earnings"]
     )

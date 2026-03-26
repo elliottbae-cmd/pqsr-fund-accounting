@@ -420,22 +420,29 @@ def generate_investor_report(
         styles['PageHeader']
     ))
 
+    # Build expense rows — show all non-zero categories
+    expense_categories = [
+        "Interest Expense", "Appraisals", "Accounting & Tax Fees",
+        "Bank Fees", "Taxes & Licenses", "Survey Fees",
+        "Origination Fee - Amort", "Depreciation Expense",
+    ]
+    total_expenses = sum(is_accounts.get(k, 0) for k in expense_categories)
+
     is_data = [
         ["REVENUE", ""],
         ["Rental Income", _fmt(is_accounts["Rental Income"])],
         ["EXPENSES", ""],
-        ["Interest Expense", _fmt2(is_accounts["Interest Expense"])],
-        ["Accounting & Tax Fees", _fmt2(is_accounts["Accounting & Tax Fees"]) if is_accounts["Accounting & Tax Fees"] else "-"],
-        ["Bank Fees", _fmt(is_accounts.get("Bank Fees", 0))],
-        ["Depreciation Expense", _fmt2(is_accounts["Depreciation Expense"])],
-        ["Total Expenses", _fmt2(
-            is_accounts["Interest Expense"] + is_accounts["Accounting & Tax Fees"]
-            + is_accounts.get("Bank Fees", 0) + is_accounts["Depreciation Expense"]
-        )],
-        ["Net Income", _fmt(cash_flow.get("Net Income", 0))],
     ]
+    for cat in expense_categories:
+        val = is_accounts.get(cat, 0)
+        if val:
+            is_data.append([cat, _fmt2(val)])
+    is_data.append(["Total Expenses", _fmt2(total_expenses)])
+    net_income = is_accounts.get("Rental Income", 0) - total_expenses
+    is_data.append(["Net Income", _fmt(net_income)])
 
     is_table = Table(is_data, colWidths=[4.5 * inch, 2 * inch])
+    is_num_rows = len(is_data)
     is_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
@@ -443,8 +450,9 @@ def generate_investor_report(
         ('BACKGROUND', (0, 2), (-1, 2), GOLD_DARK),
         ('TEXTCOLOR', (0, 2), (-1, 2), white),
         ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-        ('FONTNAME', (0, 7), (-1, 7), 'Helvetica-Bold'),
-        ('FONTNAME', (0, 8), (-1, 8), 'Helvetica-Bold'),
+        # Total Expenses and Net Income are always the last 2 rows
+        ('FONTNAME', (0, is_num_rows - 2), (-1, is_num_rows - 2), 'Helvetica-Bold'),
+        ('FONTNAME', (0, is_num_rows - 1), (-1, is_num_rows - 1), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
         ('ALIGN', (1, 0), (1, -1), 'RIGHT'),
         ('GRID', (0, 0), (-1, -1), 0.5, BORDER_GRAY),

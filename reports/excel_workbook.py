@@ -65,8 +65,9 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
         _write_row(ws_bs, r, label, bs[asset]); r += 1
 
     for asset in ["Building", "Land Improvements", "F&F", "Equipment", "Signage"]:
-        label = f"{'F&F' if asset == 'F&F' else asset} - Accum. Depreciation"
-        _write_row(ws_bs, r, label, bs[f"{asset} A/D"]); r += 1
+        display = "F&F" if asset == "F&F" else asset
+        label = "{} - Accum. Depreciation".format(display)
+        _write_row(ws_bs, r, label, bs["{} A/D".format(asset)]); r += 1
 
     _write_row(ws_bs, r, "Total Fixed Assets (Net)", totals["total_fa_net"], bold=True); r += 1
     r += 1
@@ -86,9 +87,9 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
 
     ws_bs.cell(row=r, column=1, value="MEMBERS' EQUITY").font = BOLD_FONT; r += 1
     for inv_key in INVESTORS:
-        _write_row(ws_bs, r, f"Contributions - {inv_key}", bs[f"Contributions - {inv_key}"]); r += 1
+        _write_row(ws_bs, r, "Contributions - {}".format(inv_key), bs["Contributions - {}".format(inv_key)]); r += 1
     for inv_key in INVESTORS:
-        _write_row(ws_bs, r, f"Distributions - {inv_key}", bs[f"Distributions - {inv_key}"]); r += 1
+        _write_row(ws_bs, r, "Distributions - {}".format(inv_key), bs["Distributions - {}".format(inv_key)]); r += 1
     _write_row(ws_bs, r, "CY Net Income", bs["CY Net Income"]); r += 1
     _write_row(ws_bs, r, "Retained Earnings", bs["Retained Earnings"]); r += 1
     _write_row(ws_bs, r, "Total Equity", totals["total_equity"], bold=True); r += 1
@@ -144,11 +145,11 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
         ws_aje.cell(row=r, column=2, value=entry["description"]).font = BOLD_FONT
         r += 1
         for acct, amt in entry["debits"].items():
-            ws_aje.cell(row=r, column=2, value=f"  {acct}").font = LABEL_FONT
+            ws_aje.cell(row=r, column=2, value="  {}".format(acct)).font = LABEL_FONT
             ws_aje.cell(row=r, column=3, value=amt).number_format = NUM_FMT
             r += 1
         for acct, amt in entry["credits"].items():
-            ws_aje.cell(row=r, column=2, value=f"      {acct}").font = LABEL_FONT
+            ws_aje.cell(row=r, column=2, value="      {}".format(acct)).font = LABEL_FONT
             ws_aje.cell(row=r, column=4, value=amt).number_format = NUM_FMT
             r += 1
         r += 1

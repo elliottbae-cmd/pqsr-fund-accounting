@@ -160,8 +160,15 @@ if uploaded_files:
         # Sort by date
         month_transactions.sort(key=lambda x: x["date"])
 
-        # Auto-classify
-        classified = classify_bank_data(month_transactions)
+        # Auto-classify — only if not already classified (preserves manual overrides)
+        if (st.session_state.get("classified_transactions")
+                and st.session_state.get("processing_month") == next_month
+                and len(st.session_state.classified_transactions) == len(month_transactions)):
+            classified = st.session_state.classified_transactions
+        else:
+            classified = classify_bank_data(month_transactions)
+            st.session_state.classified_transactions = classified
+            st.session_state.processing_month = next_month
 
         # Display classified transactions
         st.subheader("Classified Transactions")
@@ -237,7 +244,8 @@ if uploaded_files:
                         txn["details"] = "{} (manually classified)".format(
                             category
                         )
-                        st.success("Classified as: {}".format(category))
+                        st.session_state.classified_transactions = classified
+                        st.rerun()
 
         # Save to session state
         st.session_state.classified_transactions = classified
