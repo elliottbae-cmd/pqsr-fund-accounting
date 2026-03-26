@@ -35,13 +35,36 @@ def inject_custom_css():
         /* Push the user-content block (logo) above the nav */
         [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
             order: -1;
+            margin: 0 !important;
+            padding: 0 0 0 0 !important;
+        }
+        /* Kill all spacing inside the user content block */
+        [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] > div {
+            margin: 0 !important;
+            padding: 0 !important;
+            gap: 0 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] .stImage {
             margin-bottom: 0 !important;
             padding-bottom: 0 !important;
         }
+        [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] .stMarkdown {
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+        [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] hr {
+            margin: 0 !important;
+            padding: 0 !important;
+            display: none;
+        }
         [data-testid="stSidebar"] [data-testid="stSidebarNav"] {
             order: 1;
-            margin-top: -16px !important;
+            margin-top: 0 !important;
             padding-top: 0 !important;
+        }
+        /* Collapse the sidebar top padding */
+        [data-testid="stSidebar"] > div:first-child {
+            padding-top: 0.5rem !important;
         }
 
         /* ===== SIDEBAR BRANDING ===== */
@@ -203,11 +226,10 @@ def show_sidebar_branding():
     if os.path.exists(LOGO_PATH):
         st.sidebar.image(LOGO_PATH, use_container_width=True)
     st.sidebar.markdown(
-        "<p style='color: {}; font-size: 0.85rem; font-weight: 600; "
-        "text-align: center; margin-top: -8px;'>Accounting Portal</p>".format(GOLD_PRIMARY),
+        "<p style='color: {}; font-size: 0.8rem; font-weight: 600; "
+        "text-align: center; margin: 0; padding: 0;'>Accounting Portal</p>".format(GOLD_PRIMARY),
         unsafe_allow_html=True,
     )
-    st.sidebar.markdown("---")
 
 
 def format_currency(val, decimals=2):
