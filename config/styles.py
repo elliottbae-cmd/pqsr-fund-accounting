@@ -35,9 +35,13 @@ def inject_custom_css():
         /* Push the user-content block (logo) above the nav */
         [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
             order: -1;
+            margin-bottom: 0.08rem;
+            padding-bottom: 0;
         }
         [data-testid="stSidebar"] [data-testid="stSidebarNav"] {
             order: 1;
+            margin-top: 0;
+            padding-top: 0;
         }
 
         /* ===== SIDEBAR BRANDING ===== */
