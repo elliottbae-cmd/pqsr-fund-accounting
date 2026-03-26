@@ -14,8 +14,11 @@ from database.db import (
     get_posted_periods, load_balance_sheet, load_income_statement,
     load_cash_flow, load_totals,
 )
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Financial Statements")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Financial Statements", "Current Period View")
 
 # Period selector — load from DB
 posted = get_posted_periods()

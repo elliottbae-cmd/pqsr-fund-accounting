@@ -6,7 +6,7 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side, numbers
 from config.fund_config import FUND_NAME, INVESTORS, FIXED_ASSETS
 
 
-HEADER_FILL = PatternFill("solid", fgColor="1B2A4A")
+HEADER_FILL = PatternFill("solid", fgColor="F4A523")
 HEADER_FONT = Font(name="Arial", bold=True, color="FFFFFF", size=10)
 LABEL_FONT = Font(name="Arial", size=10)
 BOLD_FONT = Font(name="Arial", bold=True, size=10)

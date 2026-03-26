@@ -21,8 +21,11 @@ from database.db import (
     load_cash_flow, load_totals, load_all_journal_entries_through,
     load_all_distributions,
 )
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Generate Reports")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Generate Reports", "Investor PDF & Excel Workbook")
 
 # Select which period to generate reports for
 posted = get_posted_periods()

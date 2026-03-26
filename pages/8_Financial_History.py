@@ -21,8 +21,11 @@ from engine.loan_amortization import (
     generate_amortization_schedule, get_ending_balance_at_date,
     get_total_principal_paid,
 )
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Financial History")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Financial History", "Full Workbook-Style Period Views")
 
 posted = get_posted_periods()
 if not posted:
@@ -96,19 +99,6 @@ with tabs[0]:
         if v < 0:
             return "$({:,.2f})".format(abs(v))
         return "${:,.2f}".format(v)
-
-    def _calc_dr_cr(acct):
-        """Calculate total debits and credits for an account from AJEs through this period."""
-        all_ajes_through = []
-        for pd_obj, _, _ in period_dates:
-            if pd_obj <= selected_period:
-                all_ajes_through.extend(load_journal_entries(pd_obj))
-        total_dr = 0.0
-        total_cr = 0.0
-        for entry in all_ajes_through:
-            total_dr += entry["debits"].get(acct, 0)
-            total_cr += entry["credits"].get(acct, 0)
-        return total_dr, total_cr
 
     # Build BS rows
     bs_rows = []

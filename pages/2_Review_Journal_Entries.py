@@ -18,8 +18,11 @@ from database.db import (
     save_period, is_period_posted, load_all_journal_entries_through,
     get_posted_periods,
 )
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Review Journal Entries")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Review Journal Entries", "Verify & Post to Ledger")
 
 if not st.session_state.get("classified_transactions"):
     st.info("Please upload and classify bank data first.")
@@ -132,13 +135,24 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
         bs, is_accounts = roll_forward(all_entries, last_day)
         totals = compute_totals(bs)
 
-        # Loan / cash flow
+        # Loan / cash flow — use only months posted in this quarter
         amort_schedule = generate_amortization_schedule()
         quarter = (processing_month.month - 1) // 3 + 1
         year = processing_month.year
+        quarter_start_month = (quarter - 1) * 3 + 1
+        # Count how many months of this quarter have been posted
+        posted_months_in_qtr = []
+        for m in range(quarter_start_month, processing_month.month + 1):
+            if is_period_posted(date(year, m, 1)) or m == processing_month.month:
+                posted_months_in_qtr.append(m)
+        # Only sum principal for posted months (not full quarter)
         quarterly_payments = get_payments_for_quarter(amort_schedule, year, quarter)
-        quarterly_principal = sum(p["principal"] for p in quarterly_payments)
-        cash_flow = compute_cash_flow_metrics(is_accounts, quarterly_principal)
+        relevant_payments = [
+            p for p in quarterly_payments
+            if p["payment_date"].month in posted_months_in_qtr
+        ]
+        period_principal = sum(p["principal"] for p in relevant_payments)
+        cash_flow = compute_cash_flow_metrics(is_accounts, period_principal)
 
         # Distributions (quarter-end only)
         distributions = None

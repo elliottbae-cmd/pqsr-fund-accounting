@@ -10,8 +10,11 @@ from database.db import (
 )
 from config.fund_config import FUND_NAME, INVESTORS, FIXED_ASSETS
 from config.baseline_data import BALANCE_SHEET, INCOME_STATEMENT_2025
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Financials - Monthly")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Financials - Monthly", "Side-by-Side Monthly Comparison")
 
 posted = get_posted_periods()
 if not posted:

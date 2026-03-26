@@ -1,6 +1,7 @@
 """Generate the 6-page investor summary PDF using ReportLab."""
 
 import io
+import os
 from datetime import date
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
@@ -8,7 +9,7 @@ from reportlab.lib.colors import HexColor, black, white
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import (
     SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
-    PageBreak, KeepTogether
+    PageBreak, KeepTogether, Image
 )
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 
@@ -17,11 +18,13 @@ from config.fund_config import (
     DISTRIBUTION_HISTORY, FMV_ASSETS, FIXED_ASSETS,
 )
 
-# Colors matching the existing report
-DARK_BLUE = HexColor("#1B2A4A")
-MED_BLUE = HexColor("#2C3E6B")
+# Colors matching the gold/orange brand scheme
+GOLD_PRIMARY = HexColor("#F4A523")
+GOLD_DARK = HexColor("#C78A1E")
 LIGHT_GRAY = HexColor("#F5F5F5")
 BORDER_GRAY = HexColor("#CCCCCC")
+
+LOGO_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "assets", "logo.png")
 
 
 def _fmt(val, prefix="$", parens_negative=True):
@@ -31,20 +34,20 @@ def _fmt(val, prefix="$", parens_negative=True):
     if isinstance(val, str):
         return val
     if val < 0 and parens_negative:
-        return f"{prefix}({abs(val):,.0f})"
-    return f"{prefix}{val:,.0f}"
+        return "{0}({1:,.0f})".format(prefix, abs(val))
+    return "{0}{1:,.0f}".format(prefix, val)
 
 
 def _fmt2(val, prefix="$"):
     """Format with no decimals, always positive display."""
     if val is None or val == 0:
         return "-"
-    return f"{prefix}{abs(val):,.0f}"
+    return "{0}{1:,.0f}".format(prefix, abs(val))
 
 
 def _pct(val):
     """Format as percentage."""
-    return f"{val:.2%}"
+    return "{:.2%}".format(val)
 
 
 def _build_styles():
@@ -63,12 +66,12 @@ def _build_styles():
     ))
     styles.add(ParagraphStyle(
         'SectionHeader', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=11, textColor=DARK_BLUE,
+        fontName='Helvetica-Bold', fontSize=11, textColor=GOLD_PRIMARY,
         spaceBefore=12, spaceAfter=6,
     ))
     styles.add(ParagraphStyle(
         'PageHeader', parent=styles['Normal'],
-        fontName='Helvetica-Bold', fontSize=12, textColor=DARK_BLUE,
+        fontName='Helvetica-Bold', fontSize=12, textColor=GOLD_PRIMARY,
         alignment=TA_LEFT, spaceAfter=12,
     ))
     styles.add(ParagraphStyle(
@@ -138,9 +141,18 @@ def generate_investor_report(
     story = []
 
     # ==================== PAGE 1: COVER ====================
-    story.append(Spacer(1, 2 * inch))
+    story.append(Spacer(1, 1.5 * inch))
 
-    # Dark blue background box via a table
+    # Logo above the cover box
+    if os.path.exists(LOGO_PATH):
+        logo = Image(LOGO_PATH, width=1.5 * inch, height=1.5 * inch)
+        logo.hAlign = 'CENTER'
+        story.append(logo)
+        story.append(Spacer(1, 0.25 * inch))
+    else:
+        story.append(Spacer(1, 0.5 * inch))
+
+    # Gold background box via a table
     cover_data = [
         [Paragraph(FUND_NAME, styles['ReportTitle'])],
         [Paragraph(f"{as_of_date.strftime('%m/%d/%Y')} Financial Reporting", styles['ReportSubtitle'])],
@@ -148,7 +160,7 @@ def generate_investor_report(
     ]
     cover_table = Table(cover_data, colWidths=[5 * inch])
     cover_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, -1), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, -1), GOLD_PRIMARY),
         ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
         ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('TOPPADDING', (0, 0), (-1, -1), 20),
@@ -175,7 +187,7 @@ def generate_investor_report(
     ]
     bv_table = Table(bv_data, colWidths=[4 * inch, 2.5 * inch])
     bv_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -197,7 +209,7 @@ def generate_investor_report(
     ]
     fmv_table = Table(fmv_data, colWidths=[4 * inch, 2.5 * inch])
     fmv_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -220,7 +232,7 @@ def generate_investor_report(
     ]
     cd_table = Table(cd_data, colWidths=[4 * inch, 2.5 * inch])
     cd_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -237,7 +249,7 @@ def generate_investor_report(
     debt_data = [[
         _fmt(loan_balance),
         LOAN["maturity_date"].strftime("%m/%d/%Y"),
-        f"{LOAN['annual_rate']:.2%}",
+        "{:.2%}".format(LOAN['annual_rate']),
     ]]
     debt_header = [["DEBT BALANCE", "MATURITY DATE", "INTEREST RATE"]]
 
@@ -251,13 +263,13 @@ def generate_investor_report(
 
     debt_noi_data = [
         [_fmt(loan_balance), LOAN["maturity_date"].strftime("%m/%d/%Y"),
-         f"{LOAN['annual_rate']:.2%}"] + noi_labels + ["T-12 NOI"],
+         "{:.2%}".format(LOAN['annual_rate'])] + noi_labels + ["T-12 NOI"],
         ["DEBT BALANCE", "MATURITY DATE", "INTEREST RATE"] + noi_values + [_fmt(t12_noi)],
     ]
     col_w = [1.2 * inch, 1.0 * inch, 0.9 * inch] + [0.85 * inch] * (len(noi_labels) + 1)
     debt_noi_table = Table(debt_noi_data, colWidths=col_w)
     debt_noi_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 1), (-1, 1), 'Helvetica'),
@@ -307,13 +319,13 @@ def generate_investor_report(
 
     assets_table = Table(assets_data, colWidths=[4.5 * inch, 2 * inch])
     assets_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, 2), (-1, 2), MED_BLUE),
+        ('BACKGROUND', (0, 2), (-1, 2), GOLD_DARK),
         ('TEXTCOLOR', (0, 2), (-1, 2), white),
         ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, 15), (-1, 15), MED_BLUE),
+        ('BACKGROUND', (0, 15), (-1, 15), GOLD_DARK),
         ('TEXTCOLOR', (0, 15), (-1, 15), white),
         ('FONTNAME', (0, 15), (-1, 15), 'Helvetica-Bold'),
         ('FONTNAME', (0, 14), (-1, 14), 'Helvetica-Bold'),
@@ -365,11 +377,11 @@ def generate_investor_report(
     le_table = Table(combined, colWidths=[4.5 * inch, 2 * inch])
 
     le_styles = [
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, 6), (-1, 6), DARK_BLUE),
+        ('BACKGROUND', (0, 6), (-1, 6), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 6), (-1, 6), white),
         ('FONTNAME', (0, 6), (-1, 6), 'Helvetica-Bold'),
         ('FONTNAME', (0, 19), (-1, 19), 'Helvetica-Bold'),
@@ -407,10 +419,10 @@ def generate_investor_report(
 
     is_table = Table(is_data, colWidths=[4.5 * inch, 2 * inch])
     is_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-        ('BACKGROUND', (0, 2), (-1, 2), MED_BLUE),
+        ('BACKGROUND', (0, 2), (-1, 2), GOLD_DARK),
         ('TEXTCOLOR', (0, 2), (-1, 2), white),
         ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
         ('FONTNAME', (0, 7), (-1, 7), 'Helvetica-Bold'),
@@ -434,7 +446,7 @@ def generate_investor_report(
     ]
     cf_table = Table(cf_data, colWidths=[4.5 * inch, 2 * inch])
     cf_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, 4), (-1, 4), 'Helvetica-Bold'),
@@ -450,11 +462,11 @@ def generate_investor_report(
     # DSCR
     dscr_data = [
         ["DEBT SERVICE", ""],
-        ["Debt Service Coverage Ratio (DSCR)", f"{cash_flow['DSCR']:.2f}x"],
+        ["Debt Service Coverage Ratio (DSCR)", "{:.2f}x".format(cash_flow['DSCR'])],
     ]
     dscr_table = Table(dscr_data, colWidths=[4.5 * inch, 2 * inch])
     dscr_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTSIZE', (0, 0), (-1, -1), 9),
@@ -481,7 +493,7 @@ def generate_investor_report(
 
     own_table = Table(own_data, colWidths=[3.5 * inch, 1.5 * inch])
     own_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),
@@ -523,7 +535,7 @@ def generate_investor_report(
     col_widths = [1.2 * inch, 1.0 * inch] + [0.85 * inch] * (n_cols - 2)
     dist_table = Table(dist_rows, colWidths=col_widths)
     dist_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (-1, 0), DARK_BLUE),
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
         ('TEXTCOLOR', (0, 0), (-1, 0), white),
         ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
         ('FONTNAME', (0, -1), (-1, -1), 'Helvetica-Bold'),

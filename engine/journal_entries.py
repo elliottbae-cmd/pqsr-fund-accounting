@@ -36,7 +36,9 @@ def generate_monthly_ajes(classified_transactions, month_date):
         if txn["category"] == "rent":
             rent_total += credit
             prop = PROPERTIES.get(txn["property"], {})
-            rent_details.append(f"{prop.get('name', 'Unknown')}: ${credit:,.2f}")
+            rent_details.append(
+                "{}: ${:,.2f}".format(prop.get("name", "Unknown"), credit)
+            )
 
         elif txn["category"] == "loan_payment":
             payment_entry = get_payment_for_date(amort_schedule, month_date)
@@ -86,7 +88,7 @@ def generate_monthly_ajes(classified_transactions, month_date):
 
     # Distributions
     for inv_key, amount in distributions.items():
-        debits[f"Distributions - {inv_key}"] = amount
+        debits["Distributions - {}".format(inv_key)] = amount
         credits["Cash"] = credits.get("Cash", 0) + amount
 
     # Expenses
@@ -101,7 +103,7 @@ def generate_monthly_ajes(classified_transactions, month_date):
 
     entry = {
         "date": month_date,
-        "description": f"To record {month_name} Activity",
+        "description": "To record {} Activity".format(month_name),
         "debits": debits,
         "credits": credits,
     }
@@ -116,7 +118,7 @@ def generate_depreciation_aje(quarter_end_date):
     quarter_num = (quarter_end_date.month - 1) // 3 + 1
     return {
         "date": quarter_end_date,
-        "description": f"To record Q{quarter_num} book depreciation",
+        "description": "To record Q{} book depreciation".format(quarter_num),
         "debits": debits,
         "credits": credits,
     }

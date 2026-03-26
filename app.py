@@ -2,6 +2,7 @@
 
 import streamlit as st
 from database.db import init_db, get_posted_periods, get_next_expected_month
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_divider
 
 # Initialize database on app load
 init_db()
@@ -13,13 +14,11 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-st.title("PQSR Fund I, LLC")
-st.subheader("Accounting & Investor Reporting")
+# Inject professional styling and sidebar branding
+inject_custom_css()
+show_sidebar_branding()
 
-# Override sidebar label (Streamlit uses filename by default)
-st.sidebar.markdown("# Accounting")
-
-st.markdown("---")
+styled_page_header("PQSR Fund I, LLC", "Accounting & Investor Reporting")
 
 # Show current status
 posted = get_posted_periods()
@@ -31,7 +30,7 @@ with col1:
 with col2:
     st.metric("Next Period", next_month.strftime("%B %Y"))
 
-st.markdown("---")
+styled_divider()
 
 st.markdown("""
 ### Welcome
@@ -40,16 +39,17 @@ This app automates the monthly accounting and quarterly investor reporting for P
 
 **Workflow:**
 
-1. **Upload Bank Data** — Upload your monthly bank export (CSV or Excel)
-2. **Review Journal Entries** — Confirm auto-classified transactions and post to the ledger
-3. **Financial Statements** — View the rolled-forward Balance Sheet, Income Statement, and cash flow metrics
-4. **Generate Reports** — Download the quarterly investor PDF and updated Excel workbook
-5. **Financial History** — Browse all posted periods with full workbook-style views
+| Step | Page | Description |
+|------|------|-------------|
+| 1 | **Upload Bank Data** | Upload your monthly bank export (CSV or Excel) |
+| 2 | **Review Journal Entries** | Confirm auto-classified transactions and post to the ledger |
+| 3 | **Financials - Current** | View the latest Balance Sheet, Income Statement, and cash flow |
+| 4 | **Financials - Monthly** | Side-by-side monthly comparison |
+| 5 | **Financials - Quarterly** | Q1-Q4 views with partial quarter support |
+| 6 | **Generate Reports** | Download the quarterly investor PDF and Excel workbook |
+| 7 | **Financial History** | Browse all posted periods with full workbook-style views |
 
 **Status:** {} period(s) posted through {}. Next up: **{}**.
-
-**Baseline:** Financials are anchored to the 12/31/2025 year-end workbook.
-Monthly bank uploads roll forward from there.
 """.format(
     len(posted),
     posted[-1]["period_date"] if posted else "baseline (12/31/2025)",

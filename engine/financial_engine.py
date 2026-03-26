@@ -60,15 +60,14 @@ def roll_forward(journal_entries, as_of_date):
     bs = copy.deepcopy(BALANCE_SHEET)
     is_accts = {name: 0.0 for name in IS_ACCOUNTS}
     current_year = BASELINE_DATE.year
-    year_rolled = False
 
     for entry in sorted(journal_entries, key=lambda e: e["date"]):
         # Year-end roll: move CY Net Income into Retained Earnings
-        if entry["date"].year > current_year and not year_rolled:
+        # Triggers each time we cross into a new calendar year
+        if entry["date"].year > current_year:
             bs["Retained Earnings"] += bs["CY Net Income"]
             bs["CY Net Income"] = 0.0
             current_year = entry["date"].year
-            year_rolled = True
 
         # Apply debits
         for account, amount in entry["debits"].items():

@@ -16,8 +16,11 @@ from engine.loan_amortization import (
     generate_amortization_schedule, get_ending_balance_at_date,
     get_payments_for_quarter,
 )
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Financials - Quarterly")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Financials - Quarterly", "Q1-Q4 Period Reports")
 
 posted = get_posted_periods()
 if not posted:
@@ -101,7 +104,14 @@ def _get_prior_quarter_end(quarter_num, year_val, all_period_keys):
         ]
         if candidates:
             return max(candidates)
-        return None
+        # Fallback: use prior year's last posted period
+        prior_year_periods = [
+            pk for pk in all_period_keys
+            if date.fromisoformat(pk).year == year_val - 1
+        ]
+        if prior_year_periods:
+            return max(prior_year_periods)
+        return None  # Use baseline
 
 
 def _compute_quarter_is_delta(qtr_end_pk, prior_pk, all_is_data, baseline):

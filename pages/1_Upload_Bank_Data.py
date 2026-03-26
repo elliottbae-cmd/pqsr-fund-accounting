@@ -6,8 +6,11 @@ from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data
 from config.fund_config import EXPENSE_CATEGORIES
 from database.db import get_next_expected_month, get_posted_periods, is_period_posted
+from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
-st.header("Upload Bank Data")
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Upload Bank Data", "Monthly Transaction Processing")
 
 # Show posted period history
 posted = get_posted_periods()
