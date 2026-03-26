@@ -133,6 +133,55 @@ def _compute_quarter_is_delta(qtr_end_pk, prior_pk, all_is_data, baseline):
     return delta
 
 
+# Build quarter export data and Excel export — above tabs
+amort_schedule = generate_amortization_schedule()
+
+quarter_exports = []
+for q_num_exp in range(1, 5):
+    if q_num_exp not in quarter_data:
+        continue
+    qd_exp = quarter_data[q_num_exp]
+    qtr_end_pk_exp = max(qd_exp["periods"])
+    prior_pk_exp = _get_prior_quarter_end(q_num_exp, selected_year, period_keys)
+    qtr_end_date_obj_exp = date.fromisoformat(qtr_end_pk_exp)
+    qtr_end_dt_exp = date(
+        qtr_end_date_obj_exp.year, qtr_end_date_obj_exp.month,
+        monthrange(qtr_end_date_obj_exp.year, qtr_end_date_obj_exp.month)[1]
+    )
+    is_delta_exp = _compute_quarter_is_delta(qtr_end_pk_exp, prior_pk_exp, all_is, baseline_is)
+    if prior_pk_exp:
+        bs_prior_exp = all_bs.get(prior_pk_exp, {})
+        prior_lbl_exp = date.fromisoformat(prior_pk_exp).strftime("%m/%d/%Y")
+    else:
+        bs_prior_exp = BALANCE_SHEET
+        prior_lbl_exp = "12/31/2025"
+    quarter_exports.append({
+        "q_num": q_num_exp,
+        "months_posted": qd_exp["months_posted"],
+        "is_complete": len(qd_exp["periods"]) == 3,
+        "bs_end": all_bs.get(qtr_end_pk_exp, {}),
+        "totals_end": all_totals.get(qtr_end_pk_exp, {}),
+        "is_delta": is_delta_exp,
+        "cf_end": all_cf.get(qtr_end_pk_exp, {}),
+        "prior_label": prior_lbl_exp,
+        "end_label": qtr_end_dt_exp.strftime("%m/%d/%Y"),
+        "bs_prior": bs_prior_exp,
+    })
+
+if quarter_exports:
+    excel_buffer = export_quarterly_financials(
+        quarter_exports=quarter_exports,
+        fund_name=FUND_NAME,
+        selected_year=selected_year,
+    )
+    st.download_button(
+        label="Export to Excel",
+        data=excel_buffer,
+        file_name="PQSR_Financials_Quarterly_{}.xlsx".format(selected_year),
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    styled_divider()
+
 # Create Q1-Q4 tabs
 tab_labels = []
 for q in range(1, 5):
@@ -145,8 +194,6 @@ for q in range(1, 5):
         tab_labels.append("Q{} (No Data)".format(q))
 
 tabs = st.tabs(tab_labels)
-
-amort_schedule = generate_amortization_schedule()
 
 for q_idx, q_num in enumerate(range(1, 5)):
     with tabs[q_idx]:
@@ -486,54 +533,3 @@ for q_num in range(1, 5):
     })
 
 st.dataframe(pd.DataFrame(summary_rows), hide_index=True, use_container_width=True)
-
-# Excel Export
-styled_divider()
-st.markdown("##### Export")
-
-# Build quarter export data
-quarter_exports = []
-for q_num in range(1, 5):
-    if q_num not in quarter_data:
-        continue
-    qd = quarter_data[q_num]
-    qtr_end_pk = _get_quarter_end_period(qd["periods"])
-    prior_pk = _get_prior_quarter_end(q_num, selected_year, period_keys)
-    qtr_end_date_obj = date.fromisoformat(qtr_end_pk)
-    qtr_end_dt = date(
-        qtr_end_date_obj.year, qtr_end_date_obj.month,
-        monthrange(qtr_end_date_obj.year, qtr_end_date_obj.month)[1]
-    )
-    is_delta_export = _compute_quarter_is_delta(qtr_end_pk, prior_pk, all_is, baseline_is)
-    if prior_pk:
-        bs_prior_export = all_bs.get(prior_pk, {})
-        prior_lbl = date.fromisoformat(prior_pk).strftime("%m/%d/%Y")
-    else:
-        bs_prior_export = BALANCE_SHEET
-        prior_lbl = "12/31/2025"
-
-    quarter_exports.append({
-        "q_num": q_num,
-        "months_posted": qd["months_posted"],
-        "is_complete": len(qd["periods"]) == 3,
-        "bs_end": all_bs.get(qtr_end_pk, {}),
-        "totals_end": all_totals.get(qtr_end_pk, {}),
-        "is_delta": is_delta_export,
-        "cf_end": all_cf.get(qtr_end_pk, {}),
-        "prior_label": prior_lbl,
-        "end_label": qtr_end_dt.strftime("%m/%d/%Y"),
-        "bs_prior": bs_prior_export,
-    })
-
-if quarter_exports:
-    excel_buffer = export_quarterly_financials(
-        quarter_exports=quarter_exports,
-        fund_name=FUND_NAME,
-        selected_year=selected_year,
-    )
-    st.download_button(
-        label="Download Excel",
-        data=excel_buffer,
-        file_name="PQSR_Financials_Quarterly_{}.xlsx".format(selected_year),
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )

@@ -74,6 +74,36 @@ if not bs:
     st.warning("No data found for this period.")
     st.stop()
 
+# Excel Export — above tabs so it's always visible
+amort_sched_export = generate_amortization_schedule()
+loan_bal_export = get_ending_balance_at_date(amort_sched_export, selected_end)
+excel_buffer = export_financial_history(
+    bs=bs,
+    is_accounts=is_accounts,
+    cf=cf,
+    totals=totals,
+    ajes=ajes,
+    txns=txns,
+    baseline_bs=BALANCE_SHEET,
+    baseline_is=INCOME_STATEMENT_2025,
+    baseline_cf=CASH_FLOW_2025,
+    selected_end=selected_end,
+    fund_name=FUND_NAME,
+    investors=INVESTORS,
+    investor_report_names=INVESTOR_REPORT_NAMES,
+    distribution_history=DISTRIBUTION_HISTORY,
+    db_dists=load_all_distributions(),
+    amort_schedule=amort_sched_export,
+    loan_balance=loan_bal_export,
+)
+st.download_button(
+    label="Export to Excel",
+    data=excel_buffer,
+    file_name="PQSR_Financial_History_{}.xlsx".format(selected_end.strftime("%m_%d_%Y")),
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+styled_divider()
+
 # Tab layout matching Excel workbook sheets
 tabs = st.tabs([
     "BS (Consolidated)",
@@ -695,34 +725,3 @@ with tabs[6]:
         st.metric("EBITDA", "${:,.2f}".format(cf.get("EBITDA", 0)))
         st.metric("FCF", "${:,.2f}".format(cf.get("FCF", 0)))
         st.metric("DSCR", "{:.2f}x".format(cf.get("DSCR", 0)))
-
-# Excel Export — outside tabs, at bottom of page
-styled_divider()
-st.markdown("##### Export")
-amort_sched_export = generate_amortization_schedule()
-loan_bal_export = get_ending_balance_at_date(amort_sched_export, selected_end)
-excel_buffer = export_financial_history(
-    bs=bs,
-    is_accounts=is_accounts,
-    cf=cf,
-    totals=totals,
-    ajes=ajes,
-    txns=txns,
-    baseline_bs=BALANCE_SHEET,
-    baseline_is=INCOME_STATEMENT_2025,
-    baseline_cf=CASH_FLOW_2025,
-    selected_end=selected_end,
-    fund_name=FUND_NAME,
-    investors=INVESTORS,
-    investor_report_names=INVESTOR_REPORT_NAMES,
-    distribution_history=DISTRIBUTION_HISTORY,
-    db_dists=load_all_distributions(),
-    amort_schedule=amort_sched_export,
-    loan_balance=loan_bal_export,
-)
-st.download_button(
-    label="Download Excel",
-    data=excel_buffer,
-    file_name="PQSR_Financial_History_{}.xlsx".format(selected_end.strftime("%m_%d_%Y")),
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)

@@ -112,6 +112,28 @@ def _compute_monthly_delta_bs(period_keys_list, all_bs_data, baseline_bs):
 # Compute monthly deltas
 monthly_is_deltas = _compute_monthly_delta_is(year_periods, all_is, INCOME_STATEMENT_2025)
 
+# Excel Export — above tabs so it's always visible
+excel_buffer = export_monthly_financials(
+    all_bs=all_bs,
+    all_is=all_is,
+    all_cf=all_cf,
+    all_totals=all_totals,
+    year_periods=year_periods,
+    month_labels=month_labels,
+    monthly_is_deltas=monthly_is_deltas,
+    baseline_bs=BALANCE_SHEET,
+    baseline_is=INCOME_STATEMENT_2025,
+    fund_name=FUND_NAME,
+    investors=INVESTORS,
+)
+st.download_button(
+    label="Export to Excel",
+    data=excel_buffer,
+    file_name="PQSR_Financials_Monthly_{}.xlsx".format(selected_year),
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
+styled_divider()
+
 # Tabs
 tab_bs, tab_is, tab_cf = st.tabs(["Balance Sheet", "Income Statement", "Cash Flow"])
 
@@ -289,26 +311,3 @@ with tab_cf:
         cf_rows.append(row)
 
     st.dataframe(pd.DataFrame(cf_rows), hide_index=True, use_container_width=True)
-
-# Excel Export
-styled_divider()
-st.markdown("##### Export")
-excel_buffer = export_monthly_financials(
-    all_bs=all_bs,
-    all_is=all_is,
-    all_cf=all_cf,
-    all_totals=all_totals,
-    year_periods=year_periods,
-    month_labels=month_labels,
-    monthly_is_deltas=monthly_is_deltas,
-    baseline_bs=BALANCE_SHEET,
-    baseline_is=INCOME_STATEMENT_2025,
-    fund_name=FUND_NAME,
-    investors=INVESTORS,
-)
-st.download_button(
-    label="Download Excel",
-    data=excel_buffer,
-    file_name="PQSR_Financials_Monthly_{}.xlsx".format(selected_year),
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
