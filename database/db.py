@@ -577,3 +577,8 @@ def save_depreciation_journal_entry(quarter_end_date, entry):
                 "VALUES (?, ?, ?)",
                 (entry_id, acct, amt)
             )
+
+
+# Initialize database on module import — ensures all tables exist
+# regardless of which page loads first
+init_db()
