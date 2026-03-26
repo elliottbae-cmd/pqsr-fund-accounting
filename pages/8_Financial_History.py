@@ -24,6 +24,7 @@ from engine.loan_amortization import (
     generate_amortization_schedule, get_ending_balance_at_date,
     get_total_principal_paid,
 )
+from engine.depreciation import generate_fa_schedule
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 from reports.excel_export import export_financial_history
 
@@ -614,7 +615,6 @@ with tabs[4]:
 
 # ==================== Fixed Asset Schedule ====================
 with tabs[5]:
-    from engine.depreciation import generate_fa_schedule
 
     st.markdown(
         "### {} | Fixed Asset Schedule | {}".format(
