@@ -5,11 +5,10 @@ from config.auth import check_password
 if not check_password():
     st.stop()
 import pandas as pd
-import os
 from datetime import date
 from config.lease_data import (
-    LEASES, LEASE_PDF_BASE, get_monthly_rent_for_date,
-    get_next_escalation_date, get_lease_alerts, generate_full_rent_schedule,
+    LEASES, get_monthly_rent_for_date,
+    get_next_escalation_date, get_lease_alerts,
 )
 from config.fund_config import FUND_NAME
 from config.styles import (
@@ -24,10 +23,9 @@ styled_page_header("Leases", "Lease Management & Monitoring")
 today = date.today()
 
 # Four sub-tabs
-tab_schedules, tab_abstracts, tab_docs, tab_alerts = st.tabs([
+tab_schedules, tab_abstracts, tab_alerts = st.tabs([
     "Rent Schedules",
     "Lease Abstracts",
-    "Leases",
     "Alerts",
 ])
 
@@ -200,41 +198,6 @@ with tab_abstracts:
             if lease.get("right_of_first_refusal"):
                 st.markdown("---")
                 st.info("This lease includes a **Right of First Refusal** for the tenant.")
-
-
-# ==================== LEASES (PDF Documents) ====================
-with tab_docs:
-    st.markdown("### {} | Lease Documents".format(FUND_NAME))
-    st.caption("Physical lease agreements and amendments.")
-
-    # Check for PDF source directory
-    source_base = r"C:\Users\BretElliott\Plaza Street Partner Dropbox\Bret Elliott\Plaza Street Partners - Office Mgmt\PSP Overview Book\PQSR Fund I\Leases"
-
-    for key, lease in LEASES.items():
-        styled_section_header("{} ({})".format(
-            lease["property_name"], lease["psf_code"]
-        ))
-
-        for pdf_name in lease["pdf_files"]:
-            # Try assets/leases first, then source directory
-            pdf_path = os.path.join(LEASE_PDF_BASE, pdf_name)
-            if not os.path.exists(pdf_path):
-                pdf_path = os.path.join(source_base, pdf_name)
-
-            if os.path.exists(pdf_path):
-                with open(pdf_path, "rb") as f:
-                    pdf_bytes = f.read()
-                st.download_button(
-                    label=pdf_name,
-                    data=pdf_bytes,
-                    file_name=pdf_name,
-                    mime="application/pdf",
-                    key="pdf_{}_{}".format(key, pdf_name.replace(" ", "_")[:20]),
-                )
-            else:
-                st.markdown("- {} *(file not found)*".format(pdf_name))
-
-        st.markdown("")
 
 
 # ==================== ALERTS ====================
