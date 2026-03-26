@@ -73,12 +73,28 @@ with tab_schedules:
     # Escalation schedule by property
     styled_section_header("Rent Escalation Schedule")
 
+    from dateutil.relativedelta import relativedelta
+
     for key, lease in LEASES.items():
         with st.expander("{} ({})".format(lease["property_name"], lease["psf_code"])):
+            rcd = lease["rent_commencement_date"]
             sched_rows = []
             for period in lease["rent_schedule"]:
+                # Convert month numbers to actual calendar dates
+                start_date = rcd + relativedelta(months=period["start_month"] - 1)
+                end_date = rcd + relativedelta(months=period["end_month"]) - relativedelta(days=1)
+                date_range = "{} - {}".format(
+                    start_date.strftime("%m/%d/%Y"),
+                    end_date.strftime("%m/%d/%Y"),
+                )
+                # Label renewal periods
+                label = period["period"]
+                if "Renewal" in label:
+                    renewal_part = label.split(":")[0]  # e.g., "Renewal 1"
+                    date_range = "{} ({})".format(date_range, renewal_part)
+
                 sched_rows.append({
-                    "Period": period["period"],
+                    "Period": date_range,
                     "Monthly Rent": "${:,.2f}".format(period["monthly_rent"]),
                     "Annual Rent": "${:,.2f}".format(period["annual_rent"]),
                 })
@@ -87,7 +103,8 @@ with tab_schedules:
                 hide_index=True, use_container_width=True,
             )
             st.caption(
-                "Escalation: {:.1%} every {} months | Tenant: {}".format(
+                "RCD: {} | Escalation: {:.1%} every {} months | Tenant: {}".format(
+                    rcd.strftime("%m/%d/%Y"),
                     lease["escalation_rate"],
                     lease["escalation_frequency_months"],
                     lease["tenant"],
