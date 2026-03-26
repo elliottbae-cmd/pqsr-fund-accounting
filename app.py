@@ -1,6 +1,14 @@
 """PQSR Fund I — Accounting Automation App"""
 
 import streamlit as st
+
+st.set_page_config(
+    page_title="PQSR Fund I | Accounting",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
+
 from config.auth import check_password
 
 # Password gate — must pass before anything else loads
@@ -12,13 +20,6 @@ from config.styles import inject_custom_css, show_sidebar_branding, styled_page_
 
 # Initialize database on app load
 init_db()
-
-st.set_page_config(
-    page_title="PQSR Fund I | Accounting",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="expanded",
-)
 
 # Inject professional styling and sidebar branding
 inject_custom_css()
