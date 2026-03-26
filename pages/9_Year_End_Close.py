@@ -25,7 +25,7 @@ inject_custom_css()
 show_sidebar_branding()
 styled_page_header("Year-End Close", "Annual Financial Close Process")
 
-# --- Show history of closed years ---
+# --- Show history of closed years with collapsible AJEs ---
 closed_years = get_closed_years()
 if closed_years:
     styled_section_header("Closed Years")
@@ -40,6 +40,59 @@ if closed_years:
             "Locked": "Yes" if cy["locked"] else "No",
         })
     st.dataframe(pd.DataFrame(history_rows), hide_index=True, use_container_width=True)
+
+    # Collapsible AJE for each closed year
+    for cy in closed_years:
+        cy_ni = cy["cy_net_income"]
+        with st.expander("{} Closeout AJE".format(cy["year"]), expanded=False):
+            aje_rows = []
+            if cy_ni < 0:
+                # Loss: Dr Retained Earnings / Cr CY Net Income
+                aje_rows.append({
+                    "GL Account": "Retained Earnings",
+                    "Debit": "${:,.2f}".format(abs(cy_ni)),
+                    "Credit": "",
+                })
+                aje_rows.append({
+                    "GL Account": "    CY Net Income",
+                    "Debit": "",
+                    "Credit": "${:,.2f}".format(abs(cy_ni)),
+                })
+            else:
+                # Profit: Dr CY Net Income / Cr Retained Earnings
+                aje_rows.append({
+                    "GL Account": "CY Net Income",
+                    "Debit": "${:,.2f}".format(cy_ni),
+                    "Credit": "",
+                })
+                aje_rows.append({
+                    "GL Account": "    Retained Earnings",
+                    "Debit": "",
+                    "Credit": "${:,.2f}".format(cy_ni),
+                })
+            # Totals
+            aje_rows.append({
+                "GL Account": "Totals",
+                "Debit": "${:,.2f}".format(abs(cy_ni)),
+                "Credit": "${:,.2f}".format(abs(cy_ni)),
+            })
+            st.dataframe(
+                pd.DataFrame(aje_rows),
+                hide_index=True, use_container_width=True,
+            )
+            st.success("Variance: $0.00 — Entry is in balance")
+
+            # Before/After summary
+            st.markdown("**Impact:**")
+            st.markdown(
+                "- CY Net Income: ${:,.2f} → $0.00\n"
+                "- Retained Earnings: ${:,.2f} → ${:,.2f}".format(
+                    cy_ni,
+                    cy["retained_earnings_before"],
+                    cy["retained_earnings_after"],
+                )
+            )
+
     styled_divider()
 
 # --- Determine which year can be closed ---
