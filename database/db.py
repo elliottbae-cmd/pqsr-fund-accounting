@@ -1,7 +1,6 @@
 """SQLite database layer for persistent financial data storage."""
 
 import sqlite3
-import json
 import os
 from datetime import date, datetime
 from contextlib import contextmanager
@@ -218,7 +217,7 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
         if old_ids:
             placeholders = ",".join("?" * len(old_ids))
             conn.execute(
-                f"DELETE FROM journal_entry_lines WHERE entry_id IN ({placeholders})",
+                "DELETE FROM journal_entry_lines WHERE entry_id IN ({})".format(placeholders),
                 old_ids
             )
             conn.execute("DELETE FROM journal_entries WHERE period_date = ?", (pd_str,))
@@ -285,6 +284,9 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
         if distributions:
             conn.execute("DELETE FROM distribution_snapshots WHERE period_date = ?", (pd_str,))
             for inv_key, amt in distributions.items():
+                # Skip the "total" key — only store actual investor allocations
+                if inv_key == "total":
+                    continue
                 conn.execute(
                     "INSERT INTO distribution_snapshots (period_date, investor_key, amount) "
                     "VALUES (?, ?, ?)",

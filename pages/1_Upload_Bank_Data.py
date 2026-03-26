@@ -33,9 +33,12 @@ if posted:
 # Auto-detect next month
 next_month = get_next_expected_month()
 st.info(
-    f"**Next period to process:** {next_month.strftime('%B %Y')}\n\n"
-    f"Upload bank activity that includes transactions for {next_month.strftime('%B %Y')}. "
-    f"The system will filter to only this month's transactions."
+    "**Next period to process:** {}\n\n"
+    "Upload bank activity that includes transactions for {}. "
+    "The system will filter to only this month's transactions.".format(
+        next_month.strftime("%B %Y"),
+        next_month.strftime("%B %Y"),
+    )
 )
 
 st.markdown("""
@@ -109,11 +112,11 @@ if uploaded_files:
                 })
 
             st.success(
-                f"Loaded {len(df)} transactions from {uploaded_file.name}"
+                "Loaded {} transactions from {}".format(len(df), uploaded_file.name)
             )
 
         except Exception as e:
-            st.error(f"Error reading {uploaded_file.name}: {e}")
+            st.error("Error reading {}: {}".format(uploaded_file.name, e))
 
     if all_transactions:
         # Filter to the target month
@@ -134,20 +137,24 @@ if uploaded_files:
 
         if other_transactions:
             st.warning(
-                f"{len(other_transactions)} transaction(s) outside "
-                f"{next_month.strftime('%B %Y')} were excluded."
+                "{} transaction(s) outside {} were excluded.".format(
+                    len(other_transactions), next_month.strftime("%B %Y")
+                )
             )
 
         if not month_transactions:
             st.error(
-                f"No transactions found for {next_month.strftime('%B %Y')}. "
-                f"Make sure the file contains transactions for this month."
+                "No transactions found for {}. "
+                "Make sure the file contains transactions for this month.".format(
+                    next_month.strftime("%B %Y")
+                )
             )
             st.stop()
 
         st.markdown(
-            f"**Processing {len(month_transactions)} transactions "
-            f"for {next_month.strftime('%B %Y')}**"
+            "**Processing {} transactions for {}**".format(
+                len(month_transactions), next_month.strftime("%B %Y")
+            )
         )
 
         # Sort by date
@@ -194,7 +201,7 @@ if uploaded_files:
         if manual_count > 0:
             st.markdown("#### Needs Manual Classification")
             st.warning(
-                f"{manual_count} transaction(s) could not be auto-classified."
+                "{} transaction(s) could not be auto-classified.".format(manual_count)
             )
 
             for i, txn in enumerate(classified):

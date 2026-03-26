@@ -19,6 +19,10 @@ from database.db import init_db, get_posted_periods, get_next_expected_month
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_divider
 
 # Initialize database on app load
+# NOTE: On Streamlit Community Cloud, the SQLite database is ephemeral —
+# it resets on each redeployment. For production use, consider migrating
+# to a cloud database (e.g., Supabase, PlanetScale) or exporting data
+# via the Excel workbook before redeploying.
 init_db()
 
 # Inject professional styling and sidebar branding

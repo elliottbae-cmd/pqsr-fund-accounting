@@ -155,7 +155,7 @@ distribution_data = {
 # NOI history — add current quarter
 quarterly_noi = dict(QUARTERLY_NOI)
 current_noi = cash_flow.get("EBITDA", 0)
-quarterly_noi["Q{}'{}  NOI".format(quarter, str(year)[2:])] = current_noi
+quarterly_noi["Q{}'{}  NOI".format(quarter, str(year)[2:])] = current_noi  # noqa: key matches PDF layout
 
 # Keep only last 4 quarters for T-12
 if len(quarterly_noi) > 4:
