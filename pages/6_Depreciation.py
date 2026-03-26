@@ -49,7 +49,7 @@ if not posted_periods:
 
 # Find quarter-end months that have been posted but don't have depreciation booked
 # All 3 months of the quarter must be posted before depreciation can be booked
-from database.db import is_year_closed, is_period_posted
+from database.db import is_year_closed, is_period_posted, load_journal_entries
 eligible_quarters = []
 posted_period_dates = set(p["period_date"] for p in posted_periods)
 
@@ -61,21 +61,38 @@ for p in posted_periods:
             continue
         quarter = (pd_obj.month - 1) // 3 + 1
         quarter_key = "Q{} {}".format(quarter, pd_obj.year)
-        if not is_depreciation_posted(quarter_key):
-            # Verify all 3 months of this quarter are posted
-            q_start = (quarter - 1) * 3 + 1
-            all_posted = all(
-                date(pd_obj.year, m, 1).isoformat() in posted_period_dates
-                for m in range(q_start, q_start + 3)
-            )
-            if not all_posted:
-                continue
-            last_day = date(pd_obj.year, pd_obj.month,
-                            monthrange(pd_obj.year, pd_obj.month)[1])
-            eligible_quarters.append({
-                "quarter_key": quarter_key,
-                "quarter": quarter,
-                "year": pd_obj.year,
+
+        # Check both the depreciation_posted table AND existing journal entries
+        # (handles case where depreciation was auto-posted before the table existed)
+        already_booked = is_depreciation_posted(quarter_key)
+        if not already_booked:
+            # Also check if a depreciation JE already exists for this period
+            existing_ajes = load_journal_entries(pd_obj)
+            for aje in existing_ajes:
+                if aje.get("entry_type") == "depreciation" or "depreciation" in aje.get("description", "").lower():
+                    already_booked = True
+                    # Backfill the depreciation_posted table
+                    total_depr = sum(aje.get("debits", {}).values())
+                    save_depreciation_posted(quarter_key, total_depr)
+                    break
+
+        if already_booked:
+            continue
+
+        # Verify all 3 months of this quarter are posted
+        q_start = (quarter - 1) * 3 + 1
+        all_posted = all(
+            date(pd_obj.year, m, 1).isoformat() in posted_period_dates
+            for m in range(q_start, q_start + 3)
+        )
+        if not all_posted:
+            continue
+        last_day = date(pd_obj.year, pd_obj.month,
+                        monthrange(pd_obj.year, pd_obj.month)[1])
+        eligible_quarters.append({
+            "quarter_key": quarter_key,
+            "quarter": quarter,
+            "year": pd_obj.year,
                 "period_date": pd_obj,
                 "quarter_end": last_day,
             })
