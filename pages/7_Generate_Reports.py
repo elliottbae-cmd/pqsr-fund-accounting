@@ -163,8 +163,13 @@ if len(quarterly_noi) > 4:
     quarterly_noi = {k: quarterly_noi[k] for k in keys[-4:]}
 
 # Investor notes (editable)
-st.subheader("Investor Notes")
-st.markdown("Edit the notes below before generating the report.")
+styled_section_header("Investor Notes")
+st.markdown(
+    "<p style='color: #797979; font-size: 0.9rem; margin-bottom: 16px;'>"
+    "Edit the notes below before generating the report. "
+    "These will appear on the final page of the investor PDF.</p>",
+    unsafe_allow_html=True,
+)
 
 default_notes = [
     "1.) The Nacogdoches property had an uptick in inquiries in Q4 of 2025. "
@@ -183,11 +188,13 @@ default_notes = [
 ]
 
 notes = []
-for i, note in enumerate(default_notes):
-    notes.append(st.text_area(
-        "Note {}".format(i + 1), value=note, height=60,
-        key="note_{}".format(i),
-    ))
+with st.container(border=True):
+    for i, note in enumerate(default_notes):
+        label = "Note {}".format(i + 1)
+        notes.append(st.text_area(
+            label, value=note, height=60,
+            key="note_{}".format(i),
+        ))
 
 # FMV override
 st.subheader("Fair Market Value")
