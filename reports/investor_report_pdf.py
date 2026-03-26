@@ -172,7 +172,7 @@ def generate_investor_report(
 
     # ==================== PAGE 2: SUMMARY ====================
     story.append(Paragraph(
-        f"{FUND_NAME} | Investor Summary | {as_of_date.strftime('%m/%d/%Y')}",
+        "{} | Investor Summary | {}".format(FUND_NAME, as_of_date.strftime("%m/%d/%Y")),
         styles['PageHeader']
     ))
 
@@ -226,7 +226,7 @@ def generate_investor_report(
     current_qtr_dist = distribution_data.get("current_quarter", {}).get("total", 0)
     cd_data = [
         ["CASH DISTRIBUTIONS", ""],
-        [f"Distributable Cash - {as_of_date.strftime('%m/%d/%Y')}", _fmt(current_qtr_dist)],
+        ["Distributable Cash - {}".format(as_of_date.strftime("%m/%d/%Y")), _fmt(current_qtr_dist)],
         ["Total Distributions Post Acquisition", _fmt(total_dist_all_time)],
     ]
     cd_table = Table(cd_data, colWidths=[4 * inch, 2.5 * inch])
@@ -281,15 +281,34 @@ def generate_investor_report(
     story.append(debt_noi_table)
     story.append(Spacer(1, 16))
 
-    # Investor Notes
-    story.append(Paragraph("Investor Notes", styles['SectionHeader']))
+    # Investor Notes — styled table matching report format
+    notes_data = [["INVESTOR NOTES"]]
     for note in investor_notes:
-        story.append(Paragraph(note, styles['NoteText']))
+        notes_data.append([Paragraph(note, styles['NoteText'])])
+
+    notes_table = Table(notes_data, colWidths=[6.5 * inch])
+    notes_styles = [
+        ('BACKGROUND', (0, 0), (-1, 0), GOLD_PRIMARY),
+        ('TEXTCOLOR', (0, 0), (-1, 0), white),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 9),
+        ('ALIGN', (0, 0), (-1, 0), 'LEFT'),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [white, LIGHT_GRAY]),
+        ('GRID', (0, 0), (-1, -1), 0.5, BORDER_GRAY),
+        ('TOPPADDING', (0, 0), (-1, 0), 6),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+        ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+        ('TOPPADDING', (0, 1), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
+    ]
+    notes_table.setStyle(TableStyle(notes_styles))
+    story.append(notes_table)
     story.append(PageBreak())
 
     # ==================== PAGE 3: BALANCE SHEET - ASSETS ====================
     story.append(Paragraph(
-        f"{FUND_NAME} | Balance Sheet | {as_of_date.strftime('%m/%d/%Y')}",
+        "{} | Balance Sheet | {}".format(FUND_NAME, as_of_date.strftime("%m/%d/%Y")),
         styles['PageHeader']
     ))
 
@@ -342,7 +361,7 @@ def generate_investor_report(
 
     # ==================== PAGE 4: BALANCE SHEET - LIABILITIES & EQUITY ====================
     story.append(Paragraph(
-        f"{FUND_NAME} | Balance Sheet | {as_of_date.strftime('%m/%d/%Y')} (continued)",
+        "{} | Balance Sheet | {} (continued)".format(FUND_NAME, as_of_date.strftime("%m/%d/%Y")),
         styles['PageHeader']
     ))
 
@@ -397,7 +416,7 @@ def generate_investor_report(
 
     # ==================== PAGE 5: INCOME STATEMENT + CASH FLOW ====================
     story.append(Paragraph(
-        f"{FUND_NAME} | Income Statement | {as_of_date.strftime('%m/%d/%Y')}",
+        "{} | Income Statement | {}".format(FUND_NAME, as_of_date.strftime("%m/%d/%Y")),
         styles['PageHeader']
     ))
 
@@ -479,7 +498,7 @@ def generate_investor_report(
 
     # ==================== PAGE 6: DISTRIBUTIONS ====================
     story.append(Paragraph(
-        f"{FUND_NAME} | Distributions | {as_of_date.strftime('%m/%d/%Y')}",
+        "{} | Distributions | {}".format(FUND_NAME, as_of_date.strftime("%m/%d/%Y")),
         styles['PageHeader']
     ))
 
