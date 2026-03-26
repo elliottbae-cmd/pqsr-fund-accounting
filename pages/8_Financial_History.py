@@ -648,18 +648,27 @@ with tabs[5]:
 
         # Add totals row
         totals_row = {
-            "Quarter": "**Total Distributions**",
-            "Total": "**${:,.2f}**".format(grand_total),
+            "Quarter": "Total Distributions",
+            "Total": "${:,.2f}".format(grand_total),
         }
         for k in inv_keys:
-            totals_row[INVESTOR_REPORT_NAMES.get(k, k)] = "**${:,.2f}**".format(
+            totals_row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(
                 grand_by_investor[k]
             )
         dist_rows.append(totals_row)
 
+        # Set column widths so table fits without horizontal scroll
+        col_config = {
+            "Quarter": st.column_config.TextColumn(width="large"),
+            "Total": st.column_config.TextColumn(width="medium"),
+        }
+        for k in inv_keys:
+            col_config[INVESTOR_REPORT_NAMES.get(k, k)] = st.column_config.TextColumn(width="medium")
+
         st.dataframe(
             pd.DataFrame(dist_rows),
             hide_index=True, use_container_width=True,
+            column_config=col_config,
         )
 
 
