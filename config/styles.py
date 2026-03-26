@@ -26,16 +26,18 @@ def inject_custom_css():
         [data-testid="stSidebarNav"] li:first-child {
             display: none;
         }
-        [data-testid="stSidebarNav"] span[data-testid="stSidebarNavLinkText"]:first-of-type {
-            display: none;
+
+        /* ===== REORDER SIDEBAR: Logo on top, nav below ===== */
+        [data-testid="stSidebar"] > div:first-child {
+            display: flex;
+            flex-direction: column;
         }
-        /* Also hide via the link text content */
-        [data-testid="stSidebarNav"] a[href="/"] span {
-            font-size: 0;
+        /* Push the user-content block (logo) above the nav */
+        [data-testid="stSidebar"] [data-testid="stSidebarUserContent"] {
+            order: -1;
         }
-        [data-testid="stSidebarNav"] a[href="/"] span::after {
-            content: "Home";
-            font-size: 0.9rem;
+        [data-testid="stSidebar"] [data-testid="stSidebarNav"] {
+            order: 1;
         }
 
         /* ===== SIDEBAR BRANDING ===== */
