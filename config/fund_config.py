@@ -24,8 +24,8 @@ PROPERTIES = {
         "name": "Fairfield",
         "psf_code": "PSF 256",
         "monthly_rent": 18066.3075,
-        "opening_date": date(2023, 12, 31),
-        "first_bump_date": date(2029, 1, 1),
+        "opening_date": date(2024, 2, 13),
+        "first_bump_date": date(2029, 3, 1),
     },
     "beavercreek": {
         "name": "Beavercreek",
