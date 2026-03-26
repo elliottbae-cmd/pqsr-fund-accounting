@@ -630,6 +630,33 @@ with tabs[5]:
         dist_rows.append(row)
 
     if dist_rows:
+        # Compute totals across all rows
+        grand_total = 0.0
+        grand_by_investor = {k: 0.0 for k in inv_keys}
+
+        # Sum pre-baseline distributions
+        for label, amounts in DISTRIBUTION_HISTORY.items():
+            grand_total += amounts["total"]
+            for k in inv_keys:
+                grand_by_investor[k] += amounts.get(k, 0)
+
+        # Sum post-baseline distributions from DB
+        for pd_str, amounts in db_dists.items():
+            grand_total += sum(amounts.values())
+            for k in inv_keys:
+                grand_by_investor[k] += amounts.get(k, 0)
+
+        # Add totals row
+        totals_row = {
+            "Quarter": "**Total Distributions**",
+            "Total": "**${:,.2f}**".format(grand_total),
+        }
+        for k in inv_keys:
+            totals_row[INVESTOR_REPORT_NAMES.get(k, k)] = "**${:,.2f}**".format(
+                grand_by_investor[k]
+            )
+        dist_rows.append(totals_row)
+
         st.dataframe(
             pd.DataFrame(dist_rows),
             hide_index=True, use_container_width=True,
