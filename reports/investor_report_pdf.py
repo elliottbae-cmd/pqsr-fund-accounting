@@ -261,9 +261,9 @@ def generate_investor_report(
     noi_value_row = noi_values + [_fmt(t12_noi)]
 
     debt_noi_data = [
+        ["DEBT BALANCE", "MATURITY DATE", "INTEREST RATE"] + noi_labels + ["T-12 NOI"],
         [_fmt(loan_balance), LOAN["maturity_date"].strftime("%m/%d/%Y"),
-         "{:.2%}".format(LOAN['annual_rate'])] + noi_labels + ["T-12 NOI"],
-        ["DEBT BALANCE", "MATURITY DATE", "INTEREST RATE"] + noi_values + [_fmt(t12_noi)],
+         "{:.2%}".format(LOAN['annual_rate'])] + noi_values + [_fmt(t12_noi)],
     ]
     col_w = [1.2 * inch, 1.0 * inch, 0.9 * inch] + [0.85 * inch] * (len(noi_labels) + 1)
     debt_noi_table = Table(debt_noi_data, colWidths=col_w)
