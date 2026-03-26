@@ -197,12 +197,15 @@ if st.button(
         # Load existing transactions for this period (don't overwrite them)
         existing_txns = load_transactions(selected["period_date"])
 
-        # Load existing journal entries for this period to include depreciation
+        # Load existing NON-DEPRECIATION journal entries for this period.
+        # Depreciation was already saved by save_depreciation_journal_entry() above,
+        # so we exclude it here to prevent save_period() from creating a duplicate.
         period_entries = [
             e for e in all_entries
             if hasattr(e.get("date"), "year")
             and e["date"].year == selected["period_date"].year
             and e["date"].month == selected["period_date"].month
+            and e.get("entry_type") != "depreciation"
         ]
 
         # Re-save the period with updated financials
