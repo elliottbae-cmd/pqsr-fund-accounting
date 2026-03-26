@@ -81,24 +81,38 @@ for i, entry in enumerate(entries):
         "AJE {}: {} ({})".format(i + 1, desc, edate),
         expanded=True,
     ):
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown("**Debits:**")
-            for acct, amt in entry["debits"].items():
-                st.text("  {}: ${:,.2f}".format(acct, amt))
-            st.markdown("**Total Debits: ${:,.2f}**".format(entry_dr))
-        with col2:
-            st.markdown("**Credits:**")
-            for acct, amt in entry["credits"].items():
-                st.text("  {}: ${:,.2f}".format(acct, amt))
-            st.markdown("**Total Credits: ${:,.2f}**".format(entry_cr))
+        # Build GL Account / Debit / Credit table
+        aje_rows = []
+        for acct, amt in entry["debits"].items():
+            aje_rows.append({
+                "GL Account": acct,
+                "Debit": "${:,.2f}".format(amt),
+                "Credit": "",
+            })
+        for acct, amt in entry["credits"].items():
+            aje_rows.append({
+                "GL Account": "    {}".format(acct),
+                "Debit": "",
+                "Credit": "${:,.2f}".format(amt),
+            })
+        # Totals row
+        aje_rows.append({
+            "GL Account": "**Totals**",
+            "Debit": "**${:,.2f}**".format(entry_dr),
+            "Credit": "**${:,.2f}**".format(entry_cr),
+        })
+
+        st.dataframe(
+            pd.DataFrame(aje_rows),
+            hide_index=True, use_container_width=True,
+        )
 
         # Balance check
         net = entry_dr - entry_cr
         if abs(net) < 0.01:
-            st.success("In Balance (Net: $0.00)")
+            st.success("Variance: $0.00 — In Balance")
         else:
-            st.error("OUT OF BALANCE — Net: ${:,.2f}".format(net))
+            st.error("Variance: ${:,.2f} — OUT OF BALANCE".format(net))
 
 # Summary
 st.markdown("---")
