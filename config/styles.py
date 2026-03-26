@@ -231,6 +231,36 @@ def show_sidebar_branding():
         unsafe_allow_html=True,
     )
 
+    # Show red alert badge if there are active lease alerts
+    try:
+        from datetime import date
+        from config.lease_data import get_lease_alerts
+        from database.db import get_cleared_alerts
+
+        today = date.today()
+        all_alerts = get_lease_alerts(today, alert_months_early=12, alert_months_reminder=7)
+        cleared = get_cleared_alerts()
+        active_count = sum(
+            1 for a in all_alerts
+            if "{}_{}_{}".format(
+                a["type"].replace(" ", "_"),
+                a["psf_code"].replace(" ", "_"),
+                a["date"].isoformat(),
+            ) not in cleared
+        )
+        if active_count > 0:
+            st.sidebar.markdown(
+                "<div style='background-color: #DC3545; color: white; "
+                "text-align: center; padding: 4px 8px; border-radius: 4px; "
+                "font-size: 0.75rem; font-weight: 600; margin-top: 4px;'>"
+                "&#9888; {} Active Lease Alert{}</div>".format(
+                    active_count, "s" if active_count > 1 else ""
+                ),
+                unsafe_allow_html=True,
+            )
+    except Exception:
+        pass  # Don't break sidebar if lease data isn't available
+
 
 def format_currency(val, decimals=2):
     """Format a number as currency with parens for negatives.

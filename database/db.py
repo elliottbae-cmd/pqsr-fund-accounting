@@ -126,6 +126,11 @@ def init_db():
                 retained_earnings_after REAL NOT NULL,
                 locked INTEGER DEFAULT 1
             );
+
+            CREATE TABLE IF NOT EXISTS cleared_alerts (
+                alert_key TEXT PRIMARY KEY,
+                cleared_at TEXT NOT NULL
+            );
         """)
 
 
@@ -669,6 +674,45 @@ def get_year_close_prerequisites(year):
         "depreciation_posted": depr_posted,
         "depreciation_missing": depr_missing,
     }
+
+
+# --- Cleared Alerts ---
+
+def is_alert_cleared(alert_key):
+    """Check if an alert has been cleared/acknowledged."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT 1 FROM cleared_alerts WHERE alert_key = ?", (alert_key,)
+        ).fetchone()
+    return row is not None
+
+
+def clear_alert(alert_key):
+    """Mark an alert as cleared."""
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO cleared_alerts (alert_key, cleared_at) VALUES (?, ?)",
+            (alert_key, datetime.now().isoformat())
+        )
+
+
+def get_cleared_alerts():
+    """Return all cleared alert keys."""
+    with get_connection() as conn:
+        rows = conn.execute("SELECT alert_key FROM cleared_alerts").fetchall()
+    return set(r["alert_key"] for r in rows)
+
+
+def unclear_alert(alert_key):
+    """Re-activate a previously cleared alert."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM cleared_alerts WHERE alert_key = ?", (alert_key,))
+
+
+def clear_all_alerts():
+    """Clear all alerts."""
+    with get_connection() as conn:
+        conn.execute("DELETE FROM cleared_alerts")
 
 
 # Initialize database on module import — ensures all tables exist
