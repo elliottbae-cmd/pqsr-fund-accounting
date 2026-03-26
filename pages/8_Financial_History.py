@@ -657,19 +657,8 @@ with tabs[5]:
             )
         dist_rows.append(totals_row)
 
-        # Set column widths so table fits without horizontal scroll
-        col_config = {
-            "Quarter": st.column_config.TextColumn(width="large"),
-            "Total": st.column_config.TextColumn(width="medium"),
-        }
-        for k in inv_keys:
-            col_config[INVESTOR_REPORT_NAMES.get(k, k)] = st.column_config.TextColumn(width="medium")
-
-        st.dataframe(
-            pd.DataFrame(dist_rows),
-            hide_index=True, use_container_width=True,
-            column_config=col_config,
-        )
+        # Use st.table instead of st.dataframe — no scroll, auto-fits columns
+        st.table(pd.DataFrame(dist_rows))
 
 
 # ==================== Investor Summary ====================
