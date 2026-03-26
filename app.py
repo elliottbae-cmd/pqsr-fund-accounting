@@ -61,6 +61,7 @@ This app automates the monthly accounting and quarterly investor reporting for P
 | 7 | **Generate Reports** | Download the quarterly investor PDF and Excel workbook |
 | 8 | **Financial History** | Browse all posted periods with full workbook-style views |
 | 9 | **Year-End Close** | Review and lock annual financial close |
+| 10 | **Leases** | Rent schedules, lease abstracts, documents, and alerts |
 
 **Status:** {} period(s) posted through {}. Next up: **{}**.
 """.format(

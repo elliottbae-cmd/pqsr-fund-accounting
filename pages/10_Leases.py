@@ -1,0 +1,307 @@
+"""Page 10: Lease Management — Rent Schedules, Abstracts, Documents, and Alerts."""
+
+import streamlit as st
+from config.auth import check_password
+if not check_password():
+    st.stop()
+import pandas as pd
+import os
+from datetime import date
+from config.lease_data import (
+    LEASES, LEASE_PDF_BASE, get_monthly_rent_for_date,
+    get_next_escalation_date, get_lease_alerts, generate_full_rent_schedule,
+)
+from config.fund_config import FUND_NAME
+from config.styles import (
+    inject_custom_css, show_sidebar_branding, styled_page_header,
+    styled_section_header, styled_divider,
+)
+
+inject_custom_css()
+show_sidebar_branding()
+styled_page_header("Leases", "Lease Management & Monitoring")
+
+today = date.today()
+
+# Four sub-tabs
+tab_schedules, tab_abstracts, tab_docs, tab_alerts = st.tabs([
+    "Rent Schedules",
+    "Lease Abstracts",
+    "Leases",
+    "Alerts",
+])
+
+
+# ==================== RENT SCHEDULES ====================
+with tab_schedules:
+    st.markdown("### {} | Rent Schedules".format(FUND_NAME))
+    st.caption("Monthly rent by property for the full lease term.")
+
+    # Current rent summary
+    styled_section_header("Current Monthly Rent")
+
+    current_rows = []
+    total_monthly = 0
+    for key, lease in LEASES.items():
+        rent = get_monthly_rent_for_date(key, today) or 0
+        total_monthly += rent
+        next_esc = get_next_escalation_date(key, today)
+        next_esc_str = next_esc["date"].strftime("%m/%d/%Y") if next_esc else "N/A"
+        next_rent_str = "${:,.2f}".format(next_esc["new_monthly_rent"]) if next_esc else "N/A"
+
+        current_rows.append({
+            "Property": lease["property_name"],
+            "PSF Code": lease["psf_code"],
+            "Current Rent": "${:,.2f}".format(rent),
+            "Next Increase": next_esc_str,
+            "New Rent": next_rent_str,
+        })
+
+    current_rows.append({
+        "Property": "Total",
+        "PSF Code": "",
+        "Current Rent": "${:,.2f}".format(total_monthly),
+        "Next Increase": "",
+        "New Rent": "",
+    })
+
+    st.dataframe(
+        pd.DataFrame(current_rows),
+        hide_index=True, use_container_width=True,
+    )
+
+    styled_divider()
+
+    # Escalation schedule by property
+    styled_section_header("Rent Escalation Schedule")
+
+    for key, lease in LEASES.items():
+        with st.expander("{} ({})".format(lease["property_name"], lease["psf_code"])):
+            sched_rows = []
+            for period in lease["rent_schedule"]:
+                sched_rows.append({
+                    "Period": period["period"],
+                    "Monthly Rent": "${:,.2f}".format(period["monthly_rent"]),
+                    "Annual Rent": "${:,.2f}".format(period["annual_rent"]),
+                })
+            st.dataframe(
+                pd.DataFrame(sched_rows),
+                hide_index=True, use_container_width=True,
+            )
+            st.caption(
+                "Escalation: {:.1%} every {} months | Tenant: {}".format(
+                    lease["escalation_rate"],
+                    lease["escalation_frequency_months"],
+                    lease["tenant"],
+                )
+            )
+
+    styled_divider()
+
+    # Combined monthly schedule (next 5 years)
+    styled_section_header("Monthly Rent Schedule — Next 5 Years")
+
+    monthly_rows = []
+    for year in range(today.year, today.year + 5):
+        for month in range(1, 13):
+            d = date(year, month, 1)
+            row = {"Date": d.strftime("%b %Y")}
+            row_total = 0
+            for key, lease in LEASES.items():
+                rent = get_monthly_rent_for_date(key, d) or 0
+                row[lease["property_name"]] = "${:,.2f}".format(rent)
+                row_total += rent
+            row["Total"] = "${:,.2f}".format(row_total)
+            monthly_rows.append(row)
+
+    st.dataframe(
+        pd.DataFrame(monthly_rows),
+        hide_index=True, use_container_width=True, height=500,
+    )
+
+
+# ==================== LEASE ABSTRACTS ====================
+with tab_abstracts:
+    st.markdown("### {} | Lease Abstracts".format(FUND_NAME))
+    st.caption("Key terms and critical dates for each property.")
+
+    for key, lease in LEASES.items():
+        with st.expander(
+            "{} ({}) — {}".format(
+                lease["property_name"], lease["psf_code"], lease["tenant"]
+            ),
+            expanded=False,
+        ):
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("##### Property & Parties")
+                st.markdown("**Address:** {}".format(lease["address"]))
+                st.markdown("**Tenant:** {} ({})".format(
+                    lease["tenant"], lease["tenant_state"]
+                ))
+                st.markdown("**Landlord:** {}".format(lease["landlord"]))
+                st.markdown("**Lease Type:** {}".format(lease["lease_type"]))
+                st.markdown("**Use:** {}".format(lease["use"]))
+
+            with col2:
+                st.markdown("##### Key Dates")
+                st.markdown("**Lease Effective:** {}".format(
+                    lease["lease_effective_date"].strftime("%m/%d/%Y")
+                ))
+                if lease.get("amendment_date"):
+                    st.markdown("**Amendment:** {}".format(
+                        lease["amendment_date"].strftime("%m/%d/%Y")
+                    ))
+                st.markdown("**Rent Commencement:** {}".format(
+                    lease["rent_commencement_date"].strftime("%m/%d/%Y")
+                ))
+                st.markdown("**Lease Expiration:** {}".format(
+                    lease["lease_expiration_date"].strftime("%m/%d/%Y")
+                ))
+
+            st.markdown("---")
+
+            col3, col4 = st.columns(2)
+
+            with col3:
+                st.markdown("##### Term & Renewals")
+                st.markdown("**Initial Term:** {} years".format(
+                    lease["initial_term_years"]
+                ))
+                st.markdown("**Total Term:** {} months ({} years)".format(
+                    lease["total_term_months"],
+                    lease["total_term_months"] // 12,
+                ))
+                st.markdown("**Renewal Options:** {} options of {} years each".format(
+                    lease["renewal_options"], lease["renewal_term_years"]
+                ))
+                st.markdown("**Renewal Notice:** {} months prior".format(
+                    lease["renewal_notice_months"]
+                ))
+
+            with col4:
+                st.markdown("##### Rent")
+                current_rent = get_monthly_rent_for_date(key, today) or 0
+                st.markdown("**Current Monthly Rent:** ${:,.2f}".format(current_rent))
+                st.markdown("**Current Annual Rent:** ${:,.2f}".format(current_rent * 12))
+                st.markdown("**Escalation Rate:** {:.1%} every {} months".format(
+                    lease["escalation_rate"],
+                    lease["escalation_frequency_months"],
+                ))
+                next_esc = get_next_escalation_date(key, today)
+                if next_esc:
+                    st.markdown("**Next Escalation:** {} (${:,.2f}/mo)".format(
+                        next_esc["date"].strftime("%m/%d/%Y"),
+                        next_esc["new_monthly_rent"],
+                    ))
+
+            # Right of first refusal
+            if lease.get("right_of_first_refusal"):
+                st.markdown("---")
+                st.info("This lease includes a **Right of First Refusal** for the tenant.")
+
+
+# ==================== LEASES (PDF Documents) ====================
+with tab_docs:
+    st.markdown("### {} | Lease Documents".format(FUND_NAME))
+    st.caption("Physical lease agreements and amendments.")
+
+    # Check for PDF source directory
+    source_base = r"C:\Users\BretElliott\Plaza Street Partner Dropbox\Bret Elliott\Plaza Street Partners - Office Mgmt\PSP Overview Book\PQSR Fund I\Leases"
+
+    for key, lease in LEASES.items():
+        styled_section_header("{} ({})".format(
+            lease["property_name"], lease["psf_code"]
+        ))
+
+        for pdf_name in lease["pdf_files"]:
+            # Try assets/leases first, then source directory
+            pdf_path = os.path.join(LEASE_PDF_BASE, pdf_name)
+            if not os.path.exists(pdf_path):
+                pdf_path = os.path.join(source_base, pdf_name)
+
+            if os.path.exists(pdf_path):
+                with open(pdf_path, "rb") as f:
+                    pdf_bytes = f.read()
+                st.download_button(
+                    label=pdf_name,
+                    data=pdf_bytes,
+                    file_name=pdf_name,
+                    mime="application/pdf",
+                    key="pdf_{}_{}".format(key, pdf_name.replace(" ", "_")[:20]),
+                )
+            else:
+                st.markdown("- {} *(file not found)*".format(pdf_name))
+
+        st.markdown("")
+
+
+# ==================== ALERTS ====================
+with tab_alerts:
+    st.markdown("### {} | Lease Alerts".format(FUND_NAME))
+    st.caption(
+        "Monitoring rent escalations, lease expirations, and renewal option deadlines. "
+        "Alerts trigger at 12 months and again at 7 months."
+    )
+
+    alerts = get_lease_alerts(today, alert_months_early=12, alert_months_reminder=7)
+
+    if not alerts:
+        st.success("No active alerts. All lease events are more than 12 months away.")
+    else:
+        # Separate high urgency vs normal
+        high_alerts = [a for a in alerts if a["urgency"] == "high"]
+        normal_alerts = [a for a in alerts if a["urgency"] == "normal"]
+
+        if high_alerts:
+            styled_section_header("Urgent (7 Months or Less)")
+            for alert in high_alerts:
+                st.error(
+                    "**{} — {} ({})** | {} months | {} | {}".format(
+                        alert["type"],
+                        alert["property"],
+                        alert["psf_code"],
+                        alert["months_until"],
+                        alert["date"].strftime("%m/%d/%Y"),
+                        alert["description"],
+                    )
+                )
+
+        if normal_alerts:
+            styled_section_header("Upcoming (12 Months or Less)")
+            for alert in normal_alerts:
+                st.warning(
+                    "**{} — {} ({})** | {} months | {} | {}".format(
+                        alert["type"],
+                        alert["property"],
+                        alert["psf_code"],
+                        alert["months_until"],
+                        alert["date"].strftime("%m/%d/%Y"),
+                        alert["description"],
+                    )
+                )
+
+    styled_divider()
+
+    # Full upcoming events timeline (next 5 years)
+    styled_section_header("Lease Event Timeline — Next 5 Years")
+
+    timeline_alerts = get_lease_alerts(today, alert_months_early=60, alert_months_reminder=7)
+
+    if timeline_alerts:
+        timeline_rows = []
+        for alert in timeline_alerts:
+            timeline_rows.append({
+                "Date": alert["date"].strftime("%m/%d/%Y"),
+                "Type": alert["type"],
+                "Property": "{} ({})".format(alert["property"], alert["psf_code"]),
+                "Months": alert["months_until"],
+                "Details": alert["description"],
+            })
+        st.dataframe(
+            pd.DataFrame(timeline_rows),
+            hide_index=True, use_container_width=True,
+        )
+    else:
+        st.info("No lease events in the next 5 years.")
