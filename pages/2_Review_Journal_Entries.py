@@ -40,6 +40,15 @@ if not processing_month:
 month_label = processing_month.strftime("%B %Y")
 st.subheader("Period: {}".format(month_label))
 
+# Year-lock check
+from database.db import is_year_closed
+if is_year_closed(processing_month.year):
+    st.error(
+        "Fiscal year {} is closed and locked. "
+        "Cannot post journal entries to closed periods.".format(processing_month.year)
+    )
+    st.stop()
+
 if is_period_posted(processing_month):
     st.warning(
         "{} has already been posted. Re-posting will overwrite the existing data.".format(

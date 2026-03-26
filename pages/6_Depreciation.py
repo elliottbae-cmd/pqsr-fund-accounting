@@ -48,10 +48,14 @@ if not posted_periods:
     st.stop()
 
 # Find quarter-end months that have been posted but don't have depreciation booked
+from database.db import is_year_closed
 eligible_quarters = []
 for p in posted_periods:
     pd_obj = date.fromisoformat(p["period_date"])
     if pd_obj.month in (3, 6, 9, 12):
+        # Skip quarters in closed years
+        if is_year_closed(pd_obj.year):
+            continue
         quarter = (pd_obj.month - 1) // 3 + 1
         quarter_key = "Q{} {}".format(quarter, pd_obj.year)
         if not is_depreciation_posted(quarter_key):

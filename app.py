@@ -60,6 +60,7 @@ This app automates the monthly accounting and quarterly investor reporting for P
 | 6 | **Depreciation** | Review and book quarterly depreciation entries |
 | 7 | **Generate Reports** | Download the quarterly investor PDF and Excel workbook |
 | 8 | **Financial History** | Browse all posted periods with full workbook-style views |
+| 9 | **Year-End Close** | Review and lock annual financial close |
 
 **Status:** {} period(s) posted through {}. Next up: **{}**.
 """.format(

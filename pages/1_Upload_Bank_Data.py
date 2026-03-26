@@ -32,6 +32,16 @@ if posted:
 
 # Auto-detect next month
 next_month = get_next_expected_month()
+
+# Year-lock check
+from database.db import is_year_closed
+if is_year_closed(next_month.year):
+    st.error(
+        "Fiscal year {} is closed and locked. "
+        "Cannot upload data for closed periods.".format(next_month.year)
+    )
+    st.stop()
+
 st.info(
     "**Next period to process:** {}\n\n"
     "Upload bank activity that includes transactions for {}. "

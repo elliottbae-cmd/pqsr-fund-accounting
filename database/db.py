@@ -117,6 +117,15 @@ def init_db():
                 posted_at TEXT NOT NULL,
                 total_depreciation REAL NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS year_end_close (
+                year INTEGER PRIMARY KEY,
+                closed_at TEXT NOT NULL,
+                cy_net_income REAL NOT NULL,
+                retained_earnings_before REAL NOT NULL,
+                retained_earnings_after REAL NOT NULL,
+                locked INTEGER DEFAULT 1
+            );
         """)
 
 
@@ -182,6 +191,13 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
         distributions: optional dict of investor_key -> amount for quarter-end
     """
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
+
+    # Year-lock check: prevent modifications to closed years
+    year_val = period_date.year if isinstance(period_date, date) else date.fromisoformat(period_date).year
+    if is_year_closed(year_val):
+        raise ValueError(
+            "Year {} is closed. Cannot modify periods in a closed year.".format(year_val)
+        )
     is_qtr_end = period_date.month in (3, 6, 9, 12)
 
     with get_connection() as conn:
@@ -577,6 +593,82 @@ def save_depreciation_journal_entry(quarter_end_date, entry):
                 "VALUES (?, ?, ?)",
                 (entry_id, acct, amt)
             )
+
+
+# --- Year-End Close ---
+
+def is_year_closed(year):
+    """Check if a fiscal year has been closed and locked."""
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT locked FROM year_end_close WHERE year = ?", (year,)
+        ).fetchone()
+    return row is not None and row["locked"] == 1
+
+
+def get_closed_years():
+    """Return all closed years with their details."""
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM year_end_close ORDER BY year"
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def save_year_close(year, cy_net_income, re_before, re_after):
+    """Record a year-end close."""
+    with get_connection() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO year_end_close "
+            "(year, closed_at, cy_net_income, retained_earnings_before, "
+            "retained_earnings_after, locked) VALUES (?, ?, ?, ?, ?, 1)",
+            (year, datetime.now().isoformat(), cy_net_income, re_before, re_after)
+        )
+
+
+def get_year_close_prerequisites(year):
+    """Check what's needed before a year can be closed.
+
+    Returns a dict with:
+        - ready: bool
+        - months_posted: list of months posted for this year
+        - months_missing: list of months not yet posted
+        - depreciation_posted: list of quarters with depreciation
+        - depreciation_missing: list of quarters missing depreciation
+    """
+    # Check months posted
+    with get_connection() as conn:
+        rows = conn.execute(
+            "SELECT period_date FROM posted_periods WHERE period_date LIKE ?",
+            ("{}-%-01".format(year),)
+        ).fetchall()
+
+    posted_months = set()
+    for r in rows:
+        pd_obj = date.fromisoformat(r["period_date"])
+        posted_months.add(pd_obj.month)
+
+    months_missing = [m for m in range(1, 13) if m not in posted_months]
+
+    # Check depreciation
+    depr_posted = []
+    depr_missing = []
+    for q in range(1, 5):
+        qk = "Q{} {}".format(q, year)
+        if is_depreciation_posted(qk):
+            depr_posted.append(qk)
+        else:
+            depr_missing.append(qk)
+
+    ready = len(months_missing) == 0 and len(depr_missing) == 0
+
+    return {
+        "ready": ready,
+        "months_posted": sorted(posted_months),
+        "months_missing": months_missing,
+        "depreciation_posted": depr_posted,
+        "depreciation_missing": depr_missing,
+    }
 
 
 # Initialize database on module import — ensures all tables exist
