@@ -109,19 +109,13 @@ def _compute_monthly_delta_bs(period_keys_list, all_bs_data, baseline_bs):
     return deltas
 
 
-# Compute monthly deltas — use correct baseline for the selected year
-# For years > 2026, use the prior year's last posted IS as baseline (not 12/31/2025)
-if selected_year > 2026:
-    prior_year_periods = [
-        pk for pk in period_keys
-        if date.fromisoformat(pk).year == selected_year - 1
-    ]
-    if prior_year_periods:
-        _monthly_baseline_is = all_is.get(max(prior_year_periods), INCOME_STATEMENT_2025)
-    else:
-        _monthly_baseline_is = INCOME_STATEMENT_2025
-else:
-    _monthly_baseline_is = INCOME_STATEMENT_2025
+# Compute monthly deltas
+# The IS resets to zero at year-end in roll_forward(), so DB snapshots for each
+# year only contain that year's cumulative activity. The baseline for the first
+# month of any year should be ZEROS, not the prior year's cumulative IS.
+# For the baseline year (2025), we would use INCOME_STATEMENT_2025, but since
+# no 2025 periods exist in the DB, this only applies to 2026+.
+_monthly_baseline_is = {acct: 0.0 for acct in INCOME_STATEMENT_2025}
 
 monthly_is_deltas = _compute_monthly_delta_is(year_periods, all_is, _monthly_baseline_is)
 

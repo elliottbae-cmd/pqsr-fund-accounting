@@ -119,12 +119,26 @@ def _get_prior_quarter_end(quarter_num, year_val, all_period_keys):
 
 
 def _compute_quarter_is_delta(qtr_end_pk, prior_pk, all_is_data, baseline):
-    """Compute the IS activity for a quarter = end cumulative - prior cumulative."""
+    """Compute the IS activity for a quarter = end cumulative - prior cumulative.
+
+    The IS resets to zero at year-end in roll_forward(), so DB snapshots for
+    2026+ only contain that year's cumulative activity. For Q1 (no prior quarter
+    in the same year), the prior IS should be zeros — NOT the baseline 2025 IS,
+    which is from a different fiscal year.
+    """
     current = all_is_data.get(qtr_end_pk, {})
+
     if prior_pk:
-        prior = all_is_data.get(prior_pk, {})
+        prior_date = date.fromisoformat(prior_pk)
+        current_date = date.fromisoformat(qtr_end_pk)
+        if prior_date.year < current_date.year:
+            # Year boundary crossed — IS resets, so prior is zeros
+            prior = {acct: 0.0 for acct in current}
+        else:
+            prior = all_is_data.get(prior_pk, {})
     else:
-        prior = baseline
+        # No prior period at all (Q1 of first year after baseline) — IS starts at zero
+        prior = {acct: 0.0 for acct in current}
 
     delta = {}
     all_accounts = set(list(current.keys()) + list(prior.keys()))
