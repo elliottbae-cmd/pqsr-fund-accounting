@@ -188,13 +188,21 @@ default_notes = [
 ]
 
 notes = []
-with st.container(border=True):
-    for i, note in enumerate(default_notes):
-        label = "Note {}".format(i + 1)
-        notes.append(st.text_area(
-            label, value=note, height=60,
-            key="note_{}".format(i),
-        ))
+st.markdown(
+    "<div style='background: #FAFAFA; border: 1px solid #E8E8E8; "
+    "border-left: 4px solid #F4A523; border-radius: 6px; "
+    "padding: 16px 20px 4px 20px; margin-bottom: 20px;'>"
+    "<p style='color: #494949; font-weight: 600; font-size: 0.85rem; "
+    "margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px;'>"
+    "Editable Notes (7)</p></div>",
+    unsafe_allow_html=True,
+)
+for i, note in enumerate(default_notes):
+    label = "Note {}".format(i + 1)
+    notes.append(st.text_area(
+        label, value=note, height=60,
+        key="note_{}".format(i),
+    ))
 
 # FMV override
 st.subheader("Fair Market Value")
