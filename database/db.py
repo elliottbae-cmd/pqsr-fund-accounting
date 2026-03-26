@@ -505,7 +505,3 @@ def load_all_totals():
             result[pd] = {}
         result[pd][r["metric"]] = r["value"]
     return result
-
-
-# Initialize on import
-init_db()

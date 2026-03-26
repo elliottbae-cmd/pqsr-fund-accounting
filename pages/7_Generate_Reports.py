@@ -239,6 +239,7 @@ with col1:
                     quarterly_noi_history=quarterly_noi,
                     loan_balance=loan_balance,
                     total_principal_paid=total_principal,
+                    fmv_override=fmv,
                 )
                 st.download_button(
                     label="Download Investor Report PDF",

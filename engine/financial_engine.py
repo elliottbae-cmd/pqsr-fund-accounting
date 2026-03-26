@@ -43,7 +43,7 @@ DEBIT_SIGN = {
 IS_ACCOUNTS = {
     "Rental Income", "Interest Expense", "Accounting & Tax Fees",
     "Bank Fees", "Appraisals", "Taxes & Licenses", "Survey Fees",
-    "Origination Fee - Amort", "Depreciation Expense",
+    "Origination Fee - Amort", "Depreciation Expense", "Other",
 }
 
 # Revenue accounts get credit = positive in IS
@@ -63,11 +63,11 @@ def roll_forward(journal_entries, as_of_date):
 
     for entry in sorted(journal_entries, key=lambda e: e["date"]):
         # Year-end roll: move CY Net Income into Retained Earnings
-        # Triggers each time we cross into a new calendar year
-        if entry["date"].year > current_year:
+        # Use while loop to handle multi-year gaps (e.g., no entries in 2027)
+        while entry["date"].year > current_year:
             bs["Retained Earnings"] += bs["CY Net Income"]
             bs["CY Net Income"] = 0.0
-            current_year = entry["date"].year
+            current_year += 1
 
         # Apply debits
         for account, amount in entry["debits"].items():

@@ -90,7 +90,7 @@ def _build_styles():
 def generate_investor_report(
     bs, is_accounts, cash_flow, totals, distribution_data,
     as_of_date, investor_notes, quarterly_noi_history,
-    loan_balance, total_principal_paid,
+    loan_balance, total_principal_paid, fmv_override=None,
 ):
     """Generate the investor report PDF.
 
@@ -111,6 +111,8 @@ def generate_investor_report(
     """
     buffer = io.BytesIO()
     styles = _build_styles()
+
+    fmv_value = fmv_override if fmv_override is not None else FMV_ASSETS
 
     date_str = as_of_date.strftime("%m/%d/%Y")
 
@@ -202,9 +204,9 @@ def generate_investor_report(
     # Fair Market Value table
     fmv_data = [
         ["FAIR MARKET VALUE", ""],
-        ["Est. FMV of Assets Held", _fmt(FMV_ASSETS)],
+        ["Est. FMV of Assets Held", _fmt(fmv_value)],
         ["Outstanding Debt Balance", _fmt2(loan_balance)],
-        ["Est. Fund Net Worth", _fmt(FMV_ASSETS - loan_balance)],
+        ["Est. Fund Net Worth", _fmt(fmv_value - loan_balance)],
     ]
     fmv_table = Table(fmv_data, colWidths=[4 * inch, 2.5 * inch])
     fmv_table.setStyle(TableStyle([

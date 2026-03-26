@@ -50,7 +50,7 @@ TOTAL_MONTHLY_RENT = sum(p["monthly_rent"] for p in PROPERTIES.values())
 INVESTORS = {
     "PSP Inv": {
         "full_name": "PSP Investments, LLC",
-        "ownership_pct": 0.558327,
+        "ownership_pct": 0.558328,
         "contribution": 2623048.59,
     },
     "KCYUM": {

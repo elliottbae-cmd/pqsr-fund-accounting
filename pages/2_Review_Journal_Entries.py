@@ -6,7 +6,6 @@ if not check_password():
     st.stop()
 import pandas as pd
 from datetime import date
-from collections import defaultdict
 from calendar import monthrange
 from engine.journal_entries import generate_monthly_ajes, generate_depreciation_aje
 from engine.financial_engine import roll_forward, compute_totals, compute_cash_flow_metrics

@@ -14,7 +14,7 @@ from database.db import (
 )
 from config.fund_config import (
     FUND_NAME, INVESTORS, INVESTOR_REPORT_NAMES, FIXED_ASSETS,
-    LOAN, DISTRIBUTION_HISTORY, TOTAL_MONTHLY_RENT,
+    LOAN, DISTRIBUTION_HISTORY,
 )
 from config.baseline_data import (
     BALANCE_SHEET, INCOME_STATEMENT_2025, CASH_FLOW_2025, QUARTERLY_NOI,
@@ -501,7 +501,7 @@ with tabs[4]:
         )
     )
 
-    amort_schedule = generate_amortization_schedule()
+    amort_schedule = amort_sched_export  # Reuse from export section above
 
     # Summary metrics at top
     loan_balance_amort = get_ending_balance_at_date(amort_schedule, selected_end)
@@ -700,8 +700,7 @@ with tabs[6]:
         )
     )
 
-    amort_schedule = generate_amortization_schedule()
-    loan_balance = get_ending_balance_at_date(amort_schedule, selected_end)
+    loan_balance = loan_bal_export  # Reuse from export section above
     book_basis = sum(FIXED_ASSETS[k]["amount"] for k in FIXED_ASSETS)
 
     # Book Value

@@ -109,8 +109,21 @@ def _compute_monthly_delta_bs(period_keys_list, all_bs_data, baseline_bs):
     return deltas
 
 
-# Compute monthly deltas
-monthly_is_deltas = _compute_monthly_delta_is(year_periods, all_is, INCOME_STATEMENT_2025)
+# Compute monthly deltas — use correct baseline for the selected year
+# For years > 2026, use the prior year's last posted IS as baseline (not 12/31/2025)
+if selected_year > 2026:
+    prior_year_periods = [
+        pk for pk in period_keys
+        if date.fromisoformat(pk).year == selected_year - 1
+    ]
+    if prior_year_periods:
+        _monthly_baseline_is = all_is.get(max(prior_year_periods), INCOME_STATEMENT_2025)
+    else:
+        _monthly_baseline_is = INCOME_STATEMENT_2025
+else:
+    _monthly_baseline_is = INCOME_STATEMENT_2025
+
+monthly_is_deltas = _compute_monthly_delta_is(year_periods, all_is, _monthly_baseline_is)
 
 # Excel Export — above tabs so it's always visible
 excel_buffer = export_monthly_financials(

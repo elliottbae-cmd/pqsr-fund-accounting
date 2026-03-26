@@ -50,7 +50,7 @@ BALANCE_SHEET = {
     "Distributions - FEND": -18567.980663,
 
     "CY Net Income": -697215.189669,
-    "Retained Earnings": -780248.983023,
+    "Retained Earnings": -780249.040892,
 }
 
 # Income Statement for 2025 (will be rolled into Retained Earnings at year-end)
