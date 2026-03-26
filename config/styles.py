@@ -22,6 +22,22 @@ def inject_custom_css():
     """Inject custom CSS for professional gold-accented styling throughout the app."""
     st.markdown("""
     <style>
+        /* ===== HIDE DEFAULT "app" LABEL IN SIDEBAR ===== */
+        [data-testid="stSidebarNav"] li:first-child {
+            display: none;
+        }
+        [data-testid="stSidebarNav"] span[data-testid="stSidebarNavLinkText"]:first-of-type {
+            display: none;
+        }
+        /* Also hide via the link text content */
+        [data-testid="stSidebarNav"] a[href="/"] span {
+            font-size: 0;
+        }
+        [data-testid="stSidebarNav"] a[href="/"] span::after {
+            content: "Home";
+            font-size: 0.9rem;
+        }
+
         /* ===== SIDEBAR BRANDING ===== */
         [data-testid="stSidebar"] {
             background-color: #FAFAFA;
@@ -177,13 +193,12 @@ def inject_custom_css():
 
 
 def show_sidebar_branding():
-    """Display logo and branding in the sidebar."""
+    """Display PQSR Fund I logo and branding in the sidebar."""
     if os.path.exists(LOGO_PATH):
         st.sidebar.image(LOGO_PATH, use_container_width=True)
-    st.sidebar.markdown("# Accounting")
     st.sidebar.markdown(
-        "<p style='color: {}; font-size: 0.8rem; margin-top: -12px;'>"
-        "PQSR Fund I, LLC</p>".format(TEXT_MEDIUM),
+        "<p style='color: {}; font-size: 0.85rem; font-weight: 600; "
+        "text-align: center; margin-top: -8px;'>Accounting Portal</p>".format(GOLD_PRIMARY),
         unsafe_allow_html=True,
     )
     st.sidebar.markdown("---")
