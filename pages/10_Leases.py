@@ -211,6 +211,41 @@ with tab_abstracts:
                         next_esc["new_monthly_rent"],
                     ))
 
+            st.markdown("---")
+
+            # Renewal Option Notice Deadlines
+            from dateutil.relativedelta import relativedelta
+
+            st.markdown("##### Renewal Option Notice Deadlines")
+            rcd = lease["rent_commencement_date"]
+            notice_months = lease.get("renewal_notice_months", 6)
+            initial_months = lease["initial_term_months"]
+            renewal_years = lease["renewal_term_years"]
+            num_renewals = lease["renewal_options"]
+
+            renewal_rows = []
+            for r_num in range(1, num_renewals + 1):
+                # Each renewal starts after the initial term + prior renewals
+                renewal_start_month = initial_months + ((r_num - 1) * renewal_years * 12) + 1
+                renewal_start_date = rcd + relativedelta(months=renewal_start_month - 1)
+                renewal_end_date = renewal_start_date + relativedelta(years=renewal_years) - relativedelta(days=1)
+                notice_deadline = renewal_start_date - relativedelta(months=notice_months)
+
+                renewal_rows.append({
+                    "Option": "Renewal {}".format(r_num),
+                    "Term": "{} - {}".format(
+                        renewal_start_date.strftime("%m/%d/%Y"),
+                        renewal_end_date.strftime("%m/%d/%Y"),
+                    ),
+                    "Notice Deadline": notice_deadline.strftime("%m/%d/%Y"),
+                    "Status": "Upcoming" if notice_deadline > today else "Past Due",
+                })
+
+            st.dataframe(
+                pd.DataFrame(renewal_rows),
+                hide_index=True, use_container_width=True,
+            )
+
             # Right of first refusal
             if lease.get("right_of_first_refusal"):
                 st.markdown("---")
