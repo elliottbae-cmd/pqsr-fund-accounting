@@ -112,16 +112,12 @@ def generate_investor_report(
     buffer = io.BytesIO()
     styles = _build_styles()
 
-    date_str = as_of_date.strftime("%-m/%-d/%Y") if hasattr(as_of_date, 'strftime') else str(as_of_date)
-    try:
-        date_str = as_of_date.strftime("%m/%d/%Y").lstrip("0").replace("/0", "/")
-    except Exception:
-        date_str = str(as_of_date)
+    date_str = as_of_date.strftime("%m/%d/%Y")
 
     quarter = (as_of_date.month - 1) // 3 + 1
-    date_display = f"{as_of_date.month}/{as_of_date.day}/{as_of_date.year}"
+    date_display = "{}/{}/{}".format(as_of_date.month, as_of_date.day, as_of_date.year)
 
-    footer_text = f"{FUND_NAME} | Confidential - For Investor Use Only"
+    footer_text = "{} | Confidential - For Investor Use Only".format(FUND_NAME)
 
     def add_footer(canvas, doc):
         canvas.saveState()
@@ -141,21 +137,21 @@ def generate_investor_report(
     story = []
 
     # ==================== PAGE 1: COVER ====================
-    story.append(Spacer(1, 1.5 * inch))
+    story.append(Spacer(1, 1.2 * inch))
 
     # Logo above the cover box
     if os.path.exists(LOGO_PATH):
-        logo = Image(LOGO_PATH, width=1.5 * inch, height=1.5 * inch)
+        logo = Image(LOGO_PATH, width=2.2 * inch, height=2.2 * inch)
         logo.hAlign = 'CENTER'
         story.append(logo)
-        story.append(Spacer(1, 0.25 * inch))
+        story.append(Spacer(1, 0.3 * inch))
     else:
         story.append(Spacer(1, 0.5 * inch))
 
     # Gold background box via a table
     cover_data = [
         [Paragraph(FUND_NAME, styles['ReportTitle'])],
-        [Paragraph(f"{as_of_date.strftime('%m/%d/%Y')} Financial Reporting", styles['ReportSubtitle'])],
+        [Paragraph("{} Financial Reporting".format(as_of_date.strftime("%m/%d/%Y")), styles['ReportSubtitle'])],
         [Paragraph("Investor Summary", styles['ReportSubtitle'])],
     ]
     cover_table = Table(cover_data, colWidths=[5 * inch])
