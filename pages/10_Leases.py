@@ -164,12 +164,12 @@ with tab_abstracts:
 
             with col3:
                 st.markdown("##### Term & Renewals")
-                st.markdown("**Initial Term:** {} years".format(
-                    lease["initial_term_years"]
+                st.markdown("**Initial Term:** {} years ({} months)".format(
+                    lease["initial_term_years"],
+                    lease["initial_term_months"],
                 ))
-                st.markdown("**Total Term:** {} months ({} years)".format(
-                    lease["total_term_months"],
-                    lease["total_term_months"] // 12,
+                st.markdown("**Max Term (with renewals):** {} years".format(
+                    lease["initial_term_years"] + lease["renewal_options"] * lease["renewal_term_years"],
                 ))
                 st.markdown("**Renewal Options:** {} options of {} years each".format(
                     lease["renewal_options"], lease["renewal_term_years"]
