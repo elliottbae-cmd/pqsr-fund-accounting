@@ -14,6 +14,7 @@ from database.db import (
 from config.fund_config import FUND_NAME, INVESTORS, FIXED_ASSETS
 from config.baseline_data import BALANCE_SHEET, INCOME_STATEMENT_2025
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
+from reports.excel_export import export_monthly_financials
 
 inject_custom_css()
 show_sidebar_branding()
@@ -288,3 +289,26 @@ with tab_cf:
         cf_rows.append(row)
 
     st.dataframe(pd.DataFrame(cf_rows), hide_index=True, use_container_width=True)
+
+# Excel Export
+styled_divider()
+st.markdown("##### Export")
+excel_buffer = export_monthly_financials(
+    all_bs=all_bs,
+    all_is=all_is,
+    all_cf=all_cf,
+    all_totals=all_totals,
+    year_periods=year_periods,
+    month_labels=month_labels,
+    monthly_is_deltas=monthly_is_deltas,
+    baseline_bs=BALANCE_SHEET,
+    baseline_is=INCOME_STATEMENT_2025,
+    fund_name=FUND_NAME,
+    investors=INVESTORS,
+)
+st.download_button(
+    label="Download Excel",
+    data=excel_buffer,
+    file_name="PQSR_Financials_Monthly_{}.xlsx".format(selected_year),
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)

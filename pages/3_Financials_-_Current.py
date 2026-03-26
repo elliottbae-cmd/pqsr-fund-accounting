@@ -18,6 +18,7 @@ from database.db import (
     load_cash_flow, load_totals,
 )
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
+from reports.excel_export import export_current_financials
 
 inject_custom_css()
 show_sidebar_branding()
@@ -252,3 +253,22 @@ with tab3:
         "Total Principal Paid",
         "${:,.2f}".format(get_total_principal_paid(amort_schedule, as_of_date))
     )
+
+# Excel Export
+styled_divider()
+st.markdown("##### Export")
+excel_buffer = export_current_financials(
+    bs=bs,
+    is_accounts=is_accounts,
+    cash_flow=cash_flow_data,
+    totals=totals_data,
+    as_of_date=as_of_date,
+    fund_name=FUND_NAME,
+    investors=INVESTORS,
+)
+st.download_button(
+    label="Download Excel",
+    data=excel_buffer,
+    file_name="PQSR_Financials_Current_{}.xlsx".format(as_of_date.strftime("%m_%d_%Y")),
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
