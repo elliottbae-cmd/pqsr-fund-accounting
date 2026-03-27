@@ -20,13 +20,7 @@ from config.baseline_data import (
     BALANCE_SHEET, INCOME_STATEMENT_2025, CASH_FLOW_2025, QUARTERLY_NOI,
     TOTAL_DISTRIBUTIONS_THROUGH_BASELINE,
 )
-from engine.loan_amortization import (
-    generate_amortization_schedule, get_ending_balance_at_date,
-    get_total_principal_paid,
-)
-from engine.depreciation import generate_fa_schedule
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
-from reports.excel_export import export_financial_history
 
 inject_custom_css()
 show_sidebar_branding()
@@ -63,46 +57,47 @@ selected_idx = st.selectbox(
 )
 selected_period, selected_end, selected_meta = period_dates_rev[selected_idx]
 
-# Load data
+# Load core data (cached by db.py)
 bs = load_balance_sheet(selected_period)
 is_accounts = load_income_statement(selected_period)
 cf = load_cash_flow(selected_period)
 totals = load_totals(selected_period)
-ajes = load_journal_entries(selected_period)
-txns = load_transactions(selected_period)
 
 if not bs:
     st.warning("No data found for this period.")
     st.stop()
 
-# Excel Export — above tabs so it's always visible
-amort_sched_export = generate_amortization_schedule()
-loan_bal_export = get_ending_balance_at_date(amort_sched_export, selected_end)
-excel_buffer = export_financial_history(
-    bs=bs,
-    is_accounts=is_accounts,
-    cf=cf,
-    totals=totals,
-    ajes=ajes,
-    txns=txns,
-    baseline_bs=BALANCE_SHEET,
-    baseline_is=INCOME_STATEMENT_2025,
-    baseline_cf=CASH_FLOW_2025,
-    selected_end=selected_end,
-    fund_name=FUND_NAME,
-    investors=INVESTORS,
-    investor_report_names=INVESTOR_REPORT_NAMES,
-    distribution_history=DISTRIBUTION_HISTORY,
-    db_dists=load_all_distributions(),
-    amort_schedule=amort_sched_export,
-    loan_balance=loan_bal_export,
-)
-st.download_button(
-    label="Export to Excel",
-    data=excel_buffer,
-    file_name="PQSR_Financial_History_{}.xlsx".format(selected_end.strftime("%m_%d_%Y")),
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-)
+# Excel Export — LAZY: only generate when button is clicked
+def _generate_excel():
+    """Generate Excel only on demand."""
+    from engine.loan_amortization import generate_amortization_schedule, get_ending_balance_at_date
+    from reports.excel_export import export_financial_history
+    amort_sched = generate_amortization_schedule()
+    loan_bal = get_ending_balance_at_date(amort_sched, selected_end)
+    ajes_for_export = load_journal_entries(selected_period)
+    txns_for_export = load_transactions(selected_period)
+    return export_financial_history(
+        bs=bs, is_accounts=is_accounts, cf=cf, totals=totals,
+        ajes=ajes_for_export, txns=txns_for_export,
+        baseline_bs=BALANCE_SHEET, baseline_is=INCOME_STATEMENT_2025,
+        baseline_cf=CASH_FLOW_2025, selected_end=selected_end,
+        fund_name=FUND_NAME, investors=INVESTORS,
+        investor_report_names=INVESTOR_REPORT_NAMES,
+        distribution_history=DISTRIBUTION_HISTORY,
+        db_dists=load_all_distributions(),
+        amort_schedule=amort_sched, loan_balance=loan_bal,
+    )
+
+if st.button("Export to Excel"):
+    with st.spinner("Generating Excel..."):
+        excel_buffer = _generate_excel()
+        st.download_button(
+            label="Download Excel",
+            data=excel_buffer,
+            file_name="PQSR_Financial_History_{}.xlsx".format(selected_end.strftime("%m_%d_%Y")),
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
 styled_divider()
 
 # Tab layout matching Excel workbook sheets
@@ -117,6 +112,15 @@ tabs = st.tabs([
     "Investor Summary",
 ])
 
+
+def _fmt_val(v):
+    if v is None or v == 0:
+        return "-"
+    if v < 0:
+        return "$({:,.2f})".format(abs(v))
+    return "${:,.2f}".format(v)
+
+
 # ==================== BS_CONS ====================
 with tabs[0]:
     st.markdown(
@@ -125,18 +129,8 @@ with tabs[0]:
         )
     )
 
-    # Roll-forward format: Beginning | Dr. | Cr. | Ending
-    # Beginning = baseline (12/31/2025)
     baseline = BALANCE_SHEET
 
-    def _fmt_val(v):
-        if v is None or v == 0:
-            return "-"
-        if v < 0:
-            return "$({:,.2f})".format(abs(v))
-        return "${:,.2f}".format(v)
-
-    # Build BS rows
     bs_rows = []
     accounts = [
         ("ASSETS", None),
@@ -172,7 +166,6 @@ with tabs[0]:
         ("MEMBERS' EQUITY", None),
     ]
 
-    # Add investor accounts
     for inv_key in INVESTORS:
         accounts.append(
             ("Contributions - {}".format(inv_key),
@@ -191,111 +184,45 @@ with tabs[0]:
         ("**Total Liabilities / Equity**", None),
     ])
 
+    # Pre-compute baseline totals once
+    fa_keys = ["Land", "Building", "Land Improvements", "F&F", "Equipment", "Signage",
+               "Building A/D", "Land Improvements A/D", "F&F A/D", "Equipment A/D", "Signage A/D"]
+    liab_keys = ["Note Payable - BBV", "Due to PSP Investments, LLC", "Deferred Rental Revenue"]
+    fa_beg = sum(baseline.get(k, 0) for k in fa_keys)
+    oa_beg = baseline.get("Capitalized Origination Fee", 0) + baseline.get("Accumulated Amortization", 0)
+    ta_beg = baseline.get("Cash", 0) + fa_beg + oa_beg
+    tl_beg = sum(baseline.get(k, 0) for k in liab_keys)
+    te_beg = (
+        sum(baseline.get("Contributions - {}".format(k), 0) for k in INVESTORS)
+        + sum(baseline.get("Distributions - {}".format(k), 0) for k in INVESTORS)
+        + baseline.get("CY Net Income", 0) + baseline.get("Retained Earnings", 0)
+    )
+    tle_beg = tl_beg + te_beg
+
+    computed_totals = {
+        "**Total Fixed Assets (Net)**": (fa_beg, totals.get("total_fa_net", 0)),
+        "**Total Other Assets**": (oa_beg, totals.get("total_other_assets", 0)),
+        "**Total Assets**": (ta_beg, totals.get("total_assets", 0)),
+        "**Total Liabilities**": (tl_beg, totals.get("total_liabilities", 0)),
+        "**Total Equity**": (te_beg, totals.get("total_equity", 0)),
+        "**Total Liabilities / Equity**": (tle_beg, totals.get("total_liabilities_equity", 0)),
+    }
+
+    end_col = selected_end.strftime("%m/%d/%Y")
     for label, acct_key in accounts:
         if acct_key:
             beg = baseline.get(acct_key, 0)
             end = bs.get(acct_key, 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(end),
-                "Change": _fmt_val(end - beg),
-            })
-        elif label.startswith("**Total Fixed"):
-            fa_beg = sum(baseline.get(k, 0) for k in [
-                "Land", "Building", "Land Improvements", "F&F", "Equipment", "Signage",
-                "Building A/D", "Land Improvements A/D", "F&F A/D",
-                "Equipment A/D", "Signage A/D"
-            ])
-            fa_end = totals.get("total_fa_net", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(fa_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(fa_end),
-                "Change": _fmt_val(fa_end - fa_beg),
-            })
-        elif label.startswith("**Total Other"):
-            oa_beg = baseline.get("Capitalized Origination Fee", 0) + baseline.get("Accumulated Amortization", 0)
-            oa_end = totals.get("total_other_assets", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(oa_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(oa_end),
-                "Change": _fmt_val(oa_end - oa_beg),
-            })
-        elif label.startswith("**Total Assets"):
-            ta_beg = (
-                baseline.get("Cash", 0)
-                + sum(baseline.get(k, 0) for k in [
-                    "Land", "Building", "Land Improvements", "F&F", "Equipment", "Signage",
-                    "Building A/D", "Land Improvements A/D", "F&F A/D",
-                    "Equipment A/D", "Signage A/D"
-                ])
-                + baseline.get("Capitalized Origination Fee", 0)
-                + baseline.get("Accumulated Amortization", 0)
-            )
-            ta_end = totals.get("total_assets", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(ta_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(ta_end),
-                "Change": _fmt_val(ta_end - ta_beg),
-            })
-        elif label.startswith("**Total Liab") and "Equity" not in label:
-            tl_beg = sum(baseline.get(k, 0) for k in [
-                "Note Payable - BBV", "Due to PSP Investments, LLC", "Deferred Rental Revenue"
-            ])
-            tl_end = totals.get("total_liabilities", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(tl_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(tl_end),
-                "Change": _fmt_val(tl_end - tl_beg),
-            })
-        elif label.startswith("**Total Equity"):
-            te_beg = (
-                sum(baseline.get("Contributions - {}".format(k), 0) for k in INVESTORS)
-                + sum(baseline.get("Distributions - {}".format(k), 0) for k in INVESTORS)
-                + baseline.get("CY Net Income", 0)
-                + baseline.get("Retained Earnings", 0)
-            )
-            te_end = totals.get("total_equity", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(te_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(te_end),
-                "Change": _fmt_val(te_end - te_beg),
-            })
-        elif label.startswith("**Total Liabilities / Equity"):
-            tle_beg = (
-                sum(baseline.get(k, 0) for k in [
-                    "Note Payable - BBV", "Due to PSP Investments, LLC", "Deferred Rental Revenue"
-                ])
-                + sum(baseline.get("Contributions - {}".format(k), 0) for k in INVESTORS)
-                + sum(baseline.get("Distributions - {}".format(k), 0) for k in INVESTORS)
-                + baseline.get("CY Net Income", 0)
-                + baseline.get("Retained Earnings", 0)
-            )
-            tle_end = totals.get("total_liabilities_equity", 0)
-            bs_rows.append({
-                "Account": label,
-                "12/31/2025": _fmt_val(tle_beg),
-                selected_end.strftime("%m/%d/%Y"): _fmt_val(tle_end),
-                "Change": _fmt_val(tle_end - tle_beg),
-            })
+            bs_rows.append({"Account": label, "12/31/2025": _fmt_val(beg), end_col: _fmt_val(end), "Change": _fmt_val(end - beg)})
+        elif label in computed_totals:
+            beg, end = computed_totals[label]
+            bs_rows.append({"Account": label, "12/31/2025": _fmt_val(beg), end_col: _fmt_val(end), "Change": _fmt_val(end - beg)})
         else:
-            # Section header or blank
-            bs_rows.append({
-                "Account": "**{}**".format(label) if label and not label.startswith("**") else label,
-                "12/31/2025": "",
-                selected_end.strftime("%m/%d/%Y"): "",
-                "Change": "",
-            })
+            display = "**{}**".format(label) if label and not label.startswith("**") else label
+            bs_rows.append({"Account": display, "12/31/2025": "", end_col: "", "Change": ""})
 
-    bs_df = pd.DataFrame(bs_rows)
-    st.dataframe(bs_df, hide_index=True, use_container_width=True, height=800)
+    st.dataframe(pd.DataFrame(bs_rows), hide_index=True, use_container_width=True, height=800)
 
-    # Balance check
     diff = abs(totals.get("total_assets", 0) - totals.get("total_liabilities_equity", 0))
     if diff < 0.02:
         st.success("Balance Sheet is in balance!")
@@ -312,18 +239,17 @@ with tabs[1]:
     )
 
     is_2025 = INCOME_STATEMENT_2025
+    end_col = selected_end.strftime("%m/%d/%Y")
     is_rows = [
-        {"Account": "**REVENUE**", "12/31/2025": "", selected_end.strftime("%m/%d/%Y"): "", "Change": ""},
+        {"Account": "**REVENUE**", "12/31/2025": "", end_col: "", "Change": ""},
         {
             "Account": "Rental Income",
             "12/31/2025": _fmt_val(is_2025.get("Rental Income", 0)),
-            selected_end.strftime("%m/%d/%Y"): _fmt_val(is_accounts.get("Rental Income", 0)),
-            "Change": _fmt_val(
-                is_accounts.get("Rental Income", 0) - is_2025.get("Rental Income", 0)
-            ),
+            end_col: _fmt_val(is_accounts.get("Rental Income", 0)),
+            "Change": _fmt_val(is_accounts.get("Rental Income", 0) - is_2025.get("Rental Income", 0)),
         },
-        {"Account": "", "12/31/2025": "", selected_end.strftime("%m/%d/%Y"): "", "Change": ""},
-        {"Account": "**EXPENSES**", "12/31/2025": "", selected_end.strftime("%m/%d/%Y"): "", "Change": ""},
+        {"Account": "", "12/31/2025": "", end_col: "", "Change": ""},
+        {"Account": "**EXPENSES**", "12/31/2025": "", end_col: "", "Change": ""},
     ]
 
     for exp in ["Interest Expense", "Appraisals", "Accounting & Tax Fees",
@@ -331,60 +257,34 @@ with tabs[1]:
                 "Origination Fee - Amort", "Depreciation Expense"]:
         beg = is_2025.get(exp, 0)
         end = is_accounts.get(exp, 0)
-        is_rows.append({
-            "Account": exp,
-            "12/31/2025": _fmt_val(beg),
-            selected_end.strftime("%m/%d/%Y"): _fmt_val(end),
-            "Change": _fmt_val(end - beg),
-        })
+        is_rows.append({"Account": exp, "12/31/2025": _fmt_val(beg), end_col: _fmt_val(end), "Change": _fmt_val(end - beg)})
 
     total_exp_beg = sum(v for k, v in is_2025.items() if k != "Rental Income")
-    total_exp_end = sum(
-        is_accounts.get(k, 0) for k in is_accounts if k != "Rental Income"
-    )
-    is_rows.append({
-        "Account": "**Total Expenses**",
-        "12/31/2025": _fmt_val(total_exp_beg),
-        selected_end.strftime("%m/%d/%Y"): _fmt_val(total_exp_end),
-        "Change": _fmt_val(total_exp_end - total_exp_beg),
-    })
+    total_exp_end = sum(is_accounts.get(k, 0) for k in is_accounts if k != "Rental Income")
+    is_rows.append({"Account": "**Total Expenses**", "12/31/2025": _fmt_val(total_exp_beg), end_col: _fmt_val(total_exp_end), "Change": _fmt_val(total_exp_end - total_exp_beg)})
 
     ni_beg = is_2025.get("Rental Income", 0) - total_exp_beg
     ni_end = is_accounts.get("Rental Income", 0) - total_exp_end
-    is_rows.append({
-        "Account": "**Net Income**",
-        "12/31/2025": _fmt_val(ni_beg),
-        selected_end.strftime("%m/%d/%Y"): _fmt_val(ni_end),
-        "Change": _fmt_val(ni_end - ni_beg),
-    })
+    is_rows.append({"Account": "**Net Income**", "12/31/2025": _fmt_val(ni_beg), end_col: _fmt_val(ni_end), "Change": _fmt_val(ni_end - ni_beg)})
 
-    # Cash flow metrics
-    is_rows.append({"Account": "", "12/31/2025": "", selected_end.strftime("%m/%d/%Y"): "", "Change": ""})
+    is_rows.append({"Account": "", "12/31/2025": "", end_col: "", "Change": ""})
     cf_2025 = CASH_FLOW_2025
     for metric in ["EBITDA", "Interest Expense", "Principal Payments", "FCF"]:
         beg = cf_2025.get(metric, 0)
         end = cf.get(metric, 0)
-        label = metric
-        if metric in ("Interest Expense", "Principal Payments"):
-            label = "Less: {}".format(metric)
-        is_rows.append({
-            "Account": label,
-            "12/31/2025": _fmt_val(beg),
-            selected_end.strftime("%m/%d/%Y"): _fmt_val(end),
-            "Change": _fmt_val(end - beg),
-        })
+        label = "Less: {}".format(metric) if metric in ("Interest Expense", "Principal Payments") else metric
+        is_rows.append({"Account": label, "12/31/2025": _fmt_val(beg), end_col: _fmt_val(end), "Change": _fmt_val(end - beg)})
 
     dscr_beg = cf_2025.get("DSCR", 0)
     dscr_end = cf.get("DSCR", 0)
     is_rows.append({
         "Account": "**DSCR**",
         "12/31/2025": "{:.4f}x".format(dscr_beg) if dscr_beg else "-",
-        selected_end.strftime("%m/%d/%Y"): "{:.4f}x".format(dscr_end) if dscr_end else "-",
+        end_col: "{:.4f}x".format(dscr_end) if dscr_end else "-",
         "Change": "",
     })
 
-    is_df = pd.DataFrame(is_rows)
-    st.dataframe(is_df, hide_index=True, use_container_width=True, height=600)
+    st.dataframe(pd.DataFrame(is_rows), hide_index=True, use_container_width=True, height=600)
 
 
 # ==================== AJEs ====================
@@ -394,6 +294,9 @@ with tabs[2]:
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
         )
     )
+
+    # Lazy-load AJEs only when this tab is viewed
+    ajes = load_journal_entries(selected_period)
 
     if not ajes:
         st.info("No journal entries for this period.")
@@ -413,39 +316,21 @@ with tabs[2]:
                 "AJE {}: {} ({})".format(i + 1, desc, edate),
                 expanded=(i < 3),
             ):
-                # GL Account / Debit / Credit table
                 aje_rows = []
                 for acct, amt in entry["debits"].items():
-                    aje_rows.append({
-                        "GL Account": acct,
-                        "Debit": "${:,.2f}".format(amt),
-                        "Credit": "",
-                    })
+                    aje_rows.append({"GL Account": acct, "Debit": "${:,.2f}".format(amt), "Credit": ""})
                 for acct, amt in entry["credits"].items():
-                    aje_rows.append({
-                        "GL Account": "    {}".format(acct),
-                        "Debit": "",
-                        "Credit": "${:,.2f}".format(amt),
-                    })
-                aje_rows.append({
-                    "GL Account": "**Totals**",
-                    "Debit": "**${:,.2f}**".format(entry_dr),
-                    "Credit": "**${:,.2f}**".format(entry_cr),
-                })
+                    aje_rows.append({"GL Account": "    {}".format(acct), "Debit": "", "Credit": "${:,.2f}".format(amt)})
+                aje_rows.append({"GL Account": "**Totals**", "Debit": "**${:,.2f}**".format(entry_dr), "Credit": "**${:,.2f}**".format(entry_cr)})
 
-                st.dataframe(
-                    pd.DataFrame(aje_rows),
-                    hide_index=True, use_container_width=True,
-                )
+                st.dataframe(pd.DataFrame(aje_rows), hide_index=True, use_container_width=True)
 
-                # Balance check
                 net = entry_dr - entry_cr
                 if abs(net) < 0.01:
                     st.success("Variance: $0.00 — In Balance")
                 else:
                     st.error("Variance: ${:,.2f} — OUT OF BALANCE".format(net))
 
-        # Grand totals across all AJEs
         st.markdown("---")
         st.markdown("##### Period Totals")
         col1, col2, col3 = st.columns(3)
@@ -456,9 +341,7 @@ with tabs[2]:
         if abs(grand_net) < 0.01:
             st.success("All journal entries net to zero.")
         else:
-            st.error(
-                "Period AJEs are OUT OF BALANCE by ${:,.2f}".format(grand_net)
-            )
+            st.error("Period AJEs are OUT OF BALANCE by ${:,.2f}".format(grand_net))
 
 
 # ==================== Bank Activity ====================
@@ -468,6 +351,9 @@ with tabs[3]:
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
         )
     )
+
+    # Lazy-load transactions
+    txns = load_transactions(selected_period)
 
     if not txns:
         st.info("No transactions for this period.")
@@ -481,12 +367,8 @@ with tabs[3]:
                 "Credit": "${:,.2f}".format(t["credit"]) if t["credit"] else "",
                 "Category": t["details"] or t["category"] or "",
             })
-        st.dataframe(
-            pd.DataFrame(txn_rows),
-            hide_index=True, use_container_width=True,
-        )
+        st.dataframe(pd.DataFrame(txn_rows), hide_index=True, use_container_width=True)
 
-        # Monthly summary
         total_debits = sum(t["debit"] or 0 for t in txns)
         total_credits = sum(t["credit"] or 0 for t in txns)
         col1, col2, col3 = st.columns(3)
@@ -503,23 +385,21 @@ with tabs[4]:
         )
     )
 
-    amort_schedule = amort_sched_export  # Reuse from export section above
+    # Cache amort schedule in session state to avoid recalculating
+    if "amort_schedule_cache" not in st.session_state:
+        from engine.loan_amortization import generate_amortization_schedule
+        st.session_state.amort_schedule_cache = generate_amortization_schedule()
+    amort_schedule = st.session_state.amort_schedule_cache
 
-    # Summary metrics at top
+    from engine.loan_amortization import get_ending_balance_at_date, get_total_principal_paid
+
     loan_balance_amort = get_ending_balance_at_date(amort_schedule, selected_end)
     total_principal = get_total_principal_paid(amort_schedule, selected_end)
-    total_interest = sum(
-        e["interest"] for e in amort_schedule if e["payment_date"] <= selected_end
-    )
-    total_payments = sum(
-        e["payment"] for e in amort_schedule if e["payment_date"] <= selected_end
-    )
-    payments_made = sum(
-        1 for e in amort_schedule if e["payment_date"] <= selected_end
-    )
+    total_interest = sum(e["interest"] for e in amort_schedule if e["payment_date"] <= selected_end)
+    total_payments = sum(e["payment"] for e in amort_schedule if e["payment_date"] <= selected_end)
+    payments_made = sum(1 for e in amort_schedule if e["payment_date"] <= selected_end)
     payments_remaining = len(amort_schedule) - payments_made
 
-    # Use 3-column rows so numbers have room to display fully
     col1, col2, col3 = st.columns(3)
     col1.metric("Current Balance", "${:,.0f}".format(loan_balance_amort))
     col2.metric("Total Principal Paid", "${:,.0f}".format(total_principal))
@@ -531,7 +411,6 @@ with tabs[4]:
 
     st.markdown("---")
 
-    # BS tie-out
     st.markdown("##### Balance Sheet Tie-Out")
     bs_note_payable = bs.get("Note Payable - BBV", 0)
     tie_diff = abs(loan_balance_amort - bs_note_payable)
@@ -542,13 +421,10 @@ with tabs[4]:
     if tie_diff < 0.02:
         st.success("Amortization schedule ties to the Balance Sheet.")
     else:
-        st.error(
-            "DOES NOT TIE — Amort schedule vs BS difference: ${:,.2f}".format(tie_diff)
-        )
+        st.error("DOES NOT TIE — difference: ${:,.2f}".format(tie_diff))
 
     st.markdown("---")
 
-    # Annual summary (matches Excel layout: Interest / Principal / Total by year)
     st.markdown("##### Annual Summary")
     annual_data = {}
     for entry in amort_schedule:
@@ -562,10 +438,6 @@ with tabs[4]:
     annual_rows = []
     for yr in sorted(annual_data.keys()):
         d = annual_data[yr]
-        is_current = any(
-            e["payment_date"].year == yr and e["payment_date"] <= selected_end
-            for e in amort_schedule
-        )
         annual_rows.append({
             "Year": str(yr),
             "Interest": "${:,.2f}".format(d["interest"]),
@@ -575,26 +447,17 @@ with tabs[4]:
                 "Complete" if yr < selected_end.year else ""
             ),
         })
-    st.dataframe(
-        pd.DataFrame(annual_rows),
-        hide_index=True, use_container_width=True, height=300,
-    )
+    st.dataframe(pd.DataFrame(annual_rows), hide_index=True, use_container_width=True, height=300)
 
     st.markdown("---")
 
-    # Full monthly schedule with toggle
     st.markdown("##### Monthly Detail")
-    show_option = st.radio(
-        "Show payments:",
-        ["Through current period", "Full schedule"],
-        horizontal=True,
-    )
+    show_option = st.radio("Show payments:", ["Through current period", "Full schedule"], horizontal=True)
 
     amort_rows = []
     for entry in amort_schedule:
         if show_option == "Through current period" and entry["payment_date"] > selected_end:
             continue
-        is_paid = entry["payment_date"] <= selected_end
         amort_rows.append({
             "Date": entry["payment_date"].strftime("%m/%d/%Y"),
             "Year": str(entry["payment_date"].year),
@@ -603,39 +466,31 @@ with tabs[4]:
             "Principal": "${:,.2f}".format(entry["principal"]),
             "Payment": "${:,.2f}".format(entry["payment"]),
             "End. Bal.": "${:,.2f}".format(entry["ending_balance"]),
-            "Status": "Paid" if is_paid else "",
+            "Status": "Paid" if entry["payment_date"] <= selected_end else "",
         })
 
     if amort_rows:
-        st.dataframe(
-            pd.DataFrame(amort_rows),
-            hide_index=True, use_container_width=True, height=500,
-        )
+        st.dataframe(pd.DataFrame(amort_rows), hide_index=True, use_container_width=True, height=500)
 
 
 # ==================== Fixed Asset Schedule ====================
 with tabs[5]:
-
     st.markdown(
         "### {} | Fixed Asset Schedule | {}".format(
             FUND_NAME, selected_end.strftime("%m/%d/%Y")
         )
     )
 
+    from engine.depreciation import generate_fa_schedule
     fa_data = generate_fa_schedule(selected_end)
     years = fa_data["years"]
     year_labels = ["12/31/{}".format(y) for y in years]
 
-    # --- Section 1: Depreciation Expense ---
     styled_section_header("Depreciation Expense")
-
     st.markdown("**Total Purchase Price: ${:,.2f}**".format(fa_data["total_purchase_price"]))
 
-    # Header row
-    depr_header = ["Class", "Cost Seg %", "Amount", "Useful Life"] + year_labels
     depr_rows = []
     yearly_totals = {y: 0 for y in years}
-
     for ac in fa_data["asset_classes"]:
         row = {
             "Class": ac["class"],
@@ -649,54 +504,32 @@ with tabs[5]:
             yearly_totals[y] += depr_val
         depr_rows.append(row)
 
-    # Totals row
-    total_row = {
-        "Class": "Total",
-        "Cost Seg %": "100.00%",
-        "Amount": "${:,.2f}".format(fa_data["total_purchase_price"]),
-        "Useful Life": "",
-    }
+    total_row = {"Class": "Total", "Cost Seg %": "100.00%", "Amount": "${:,.2f}".format(fa_data["total_purchase_price"]), "Useful Life": ""}
     for y in years:
         total_row["12/31/{}".format(y)] = "${:,.2f}".format(yearly_totals[y])
     depr_rows.append(total_row)
-
-    st.dataframe(
-        pd.DataFrame(depr_rows),
-        hide_index=True, use_container_width=True,
-    )
+    st.dataframe(pd.DataFrame(depr_rows), hide_index=True, use_container_width=True)
 
     styled_divider()
-
-    # --- Section 2: Accumulated Depreciation ---
     styled_section_header("Accumulated Depreciation")
 
     ad_rows = []
     ad_yearly_totals = {y: 0 for y in years}
-
     for ac in fa_data["asset_classes"]:
-        row = {
-            "Class": ac["class"],
-        }
+        row = {"Class": ac["class"]}
         for y in years:
             ad_val = fa_data["accum_depr_by_year"].get(y, {}).get(ac["class"], 0)
             row["12/31/{}".format(y)] = "$({:,.2f})".format(ad_val) if ad_val else "-"
             ad_yearly_totals[y] += ad_val
         ad_rows.append(row)
 
-    # Totals row
     ad_total_row = {"Class": "Total A/D"}
     for y in years:
         ad_total_row["12/31/{}".format(y)] = "$({:,.2f})".format(ad_yearly_totals[y])
     ad_rows.append(ad_total_row)
-
-    st.dataframe(
-        pd.DataFrame(ad_rows),
-        hide_index=True, use_container_width=True,
-    )
+    st.dataframe(pd.DataFrame(ad_rows), hide_index=True, use_container_width=True)
 
     styled_divider()
-
-    # --- Section 3: Summary & BS Tie-Out ---
     styled_section_header("Net Book Value & Balance Sheet Tie-Out")
 
     summary_rows = []
@@ -720,29 +553,18 @@ with tabs[5]:
         "Accum. Depr.": "$({:,.2f})".format(total_ad),
         "Net Book Value": "${:,.2f}".format(total_nbv),
     })
+    st.dataframe(pd.DataFrame(summary_rows), hide_index=True, use_container_width=True)
 
-    st.dataframe(
-        pd.DataFrame(summary_rows),
-        hide_index=True, use_container_width=True,
-    )
-
-    # BS Tie-Out
     bs_fa_net = totals.get("total_fa_net", 0)
-    fa_schedule_nbv = total_nbv
-    diff = abs(bs_fa_net - fa_schedule_nbv)
-
+    fa_diff = abs(bs_fa_net - total_nbv)
     col1, col2, col3 = st.columns(3)
-    col1.metric("FA Schedule NBV", "${:,.0f}".format(fa_schedule_nbv))
+    col1.metric("FA Schedule NBV", "${:,.0f}".format(total_nbv))
     col2.metric("BS: Fixed Assets (Net)", "${:,.0f}".format(bs_fa_net))
-    col3.metric("Difference", "${:,.2f}".format(diff))
-
-    if diff < 1.00:
+    col3.metric("Difference", "${:,.2f}".format(fa_diff))
+    if fa_diff < 1.00:
         st.success("Fixed Asset Schedule ties to the Balance Sheet.")
     else:
-        st.warning(
-            "Difference of ${:,.2f} between FA Schedule and BS. "
-            "This may be due to partial-year inception timing.".format(diff)
-        )
+        st.warning("Difference of ${:,.2f} between FA Schedule and BS.".format(fa_diff))
 
 
 # ==================== Distributions ====================
@@ -753,7 +575,6 @@ with tabs[6]:
         )
     )
 
-    # Investor ownership
     st.markdown("##### Investor Ownership")
     own_rows = []
     for inv_key, inv in INVESTORS.items():
@@ -765,22 +586,16 @@ with tabs[6]:
     st.dataframe(pd.DataFrame(own_rows), hide_index=True, use_container_width=True)
 
     st.markdown("---")
-
-    # Distribution history
     st.markdown("##### Distribution History")
     inv_keys = list(INVESTORS.keys())
 
     dist_rows = []
-    # Pre-baseline distributions
     for label, amounts in DISTRIBUTION_HISTORY.items():
         row = {"Quarter": label, "Total": "${:,.2f}".format(amounts["total"])}
         for k in inv_keys:
-            row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(
-                amounts.get(k, 0)
-            )
+            row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(amounts.get(k, 0))
         dist_rows.append(row)
 
-    # Post-baseline distributions from DB
     db_dists = load_all_distributions()
     for pd_str, amounts in db_dists.items():
         pd_obj = date.fromisoformat(pd_str)
@@ -789,40 +604,26 @@ with tabs[6]:
         total = sum(amounts.values())
         row = {"Quarter": label, "Total": "${:,.2f}".format(total)}
         for k in inv_keys:
-            row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(
-                amounts.get(k, 0)
-            )
+            row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(amounts.get(k, 0))
         dist_rows.append(row)
 
     if dist_rows:
-        # Compute totals across all rows
         grand_total = 0.0
         grand_by_investor = {k: 0.0 for k in inv_keys}
-
-        # Sum pre-baseline distributions
         for label, amounts in DISTRIBUTION_HISTORY.items():
             grand_total += amounts["total"]
             for k in inv_keys:
                 grand_by_investor[k] += amounts.get(k, 0)
-
-        # Sum post-baseline distributions from DB
         for pd_str, amounts in db_dists.items():
             grand_total += sum(amounts.values())
             for k in inv_keys:
                 grand_by_investor[k] += amounts.get(k, 0)
 
-        # Add totals row
-        totals_row = {
-            "Quarter": "Total Distributions",
-            "Total": "${:,.2f}".format(grand_total),
-        }
+        totals_row = {"Quarter": "Total Distributions", "Total": "${:,.2f}".format(grand_total)}
         for k in inv_keys:
-            totals_row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(
-                grand_by_investor[k]
-            )
+            totals_row[INVESTOR_REPORT_NAMES.get(k, k)] = "${:,.2f}".format(grand_by_investor[k])
         dist_rows.append(totals_row)
 
-        # Use st.table instead of st.dataframe — no scroll, auto-fits columns
         st.table(pd.DataFrame(dist_rows))
 
 
@@ -834,10 +635,15 @@ with tabs[7]:
         )
     )
 
-    loan_balance = loan_bal_export  # Reuse from export section above
     book_basis = sum(FIXED_ASSETS[k]["amount"] for k in FIXED_ASSETS)
 
-    # Book Value
+    # Get loan balance from amort cache
+    if "amort_schedule_cache" not in st.session_state:
+        from engine.loan_amortization import generate_amortization_schedule
+        st.session_state.amort_schedule_cache = generate_amortization_schedule()
+    from engine.loan_amortization import get_ending_balance_at_date
+    loan_balance = get_ending_balance_at_date(st.session_state.amort_schedule_cache, selected_end)
+
     st.markdown("##### Book Value")
     bv_rows = [
         {"Metric": "Book Basis of Assets Held", "Amount": "${:,.2f}".format(book_basis)},
@@ -848,7 +654,6 @@ with tabs[7]:
 
     st.markdown("---")
 
-    # Key metrics
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Loan Balance", "${:,.2f}".format(loan_balance))
