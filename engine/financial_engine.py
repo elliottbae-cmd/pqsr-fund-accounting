@@ -137,13 +137,23 @@ def compute_totals(bs):
 
 
 def compute_cash_flow_metrics(is_accounts, quarterly_principal):
-    """Compute EBITDA, FCF, and DSCR from income statement data."""
-    revenue = is_accounts["Rental Income"]
-    depreciation = is_accounts["Depreciation Expense"]
-    interest = is_accounts["Interest Expense"]
+    """Compute EBITDA, FCF, and DSCR from income statement data.
+
+    EBITDA = Revenue - Operating Expenses (excludes Interest, Depreciation, and Amortization)
+    """
+    revenue = is_accounts.get("Rental Income", 0)
+    depreciation = is_accounts.get("Depreciation Expense", 0)
+    interest = is_accounts.get("Interest Expense", 0)
+    amortization = is_accounts.get("Origination Fee - Amort", 0)
+
+    # Operating expenses = everything except Revenue, Interest, Depreciation, and Amortization
+    non_ebitda_accounts = {
+        "Rental Income", "Depreciation Expense", "Interest Expense",
+        "Origination Fee - Amort",
+    }
     other_expenses = sum(
-        is_accounts[k] for k in is_accounts
-        if k not in ("Rental Income", "Depreciation Expense", "Interest Expense")
+        is_accounts.get(k, 0) for k in is_accounts
+        if k not in non_ebitda_accounts
     )
 
     ebitda = revenue - other_expenses
@@ -157,5 +167,5 @@ def compute_cash_flow_metrics(is_accounts, quarterly_principal):
         "Principal Payments": quarterly_principal,
         "FCF": fcf,
         "DSCR": dscr,
-        "Net Income": revenue - interest - other_expenses - depreciation,
+        "Net Income": revenue - interest - other_expenses - depreciation - amortization,
     }
