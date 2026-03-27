@@ -10,6 +10,7 @@ from calendar import monthrange
 from database.db import (
     get_posted_periods, load_all_balance_sheets, load_all_income_statements,
     load_all_cash_flows, load_all_totals, load_all_distributions,
+    load_all_period_data,
 )
 from config.fund_config import (
     FUND_NAME, INVESTORS, INVESTOR_REPORT_NAMES, FIXED_ASSETS, LOAN,
@@ -31,11 +32,8 @@ if not posted:
     st.info("No periods posted yet. Upload and process bank data first.")
     st.stop()
 
-# Load all data
-all_bs = load_all_balance_sheets()
-all_is = load_all_income_statements()
-all_cf = load_all_cash_flows()
-all_totals = load_all_totals()
+# Load all data in a single connection batch
+all_bs, all_is, all_cf, all_totals = load_all_period_data()
 
 period_keys = sorted(all_bs.keys())
 if not period_keys:

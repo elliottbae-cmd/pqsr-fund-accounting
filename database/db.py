@@ -3,6 +3,7 @@
 import os
 import psycopg2
 import psycopg2.extras
+import streamlit as st
 from datetime import date, datetime
 from contextlib import contextmanager
 
@@ -10,7 +11,6 @@ from contextlib import contextmanager
 def _get_db_url():
     """Get the database URL from Streamlit secrets or environment."""
     try:
-        import streamlit as st
         return st.secrets["DATABASE_URL"]
     except Exception:
         return os.environ.get("DATABASE_URL", "")
@@ -60,6 +60,7 @@ def init_db():
 
 # --- Posted Periods ---
 
+@st.cache_data(ttl=60)
 def get_posted_periods():
     """Return all posted periods sorted by date."""
     with get_connection() as conn:
@@ -229,9 +230,12 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
                     (pd_str, inv_key, amt)
                 )
 
+    st.cache_data.clear()
+
 
 # --- Load Period Data ---
 
+@st.cache_data(ttl=60)
 def load_balance_sheet(period_date):
     """Load balance sheet for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -242,6 +246,7 @@ def load_balance_sheet(period_date):
     return {r["account"]: r["amount"] for r in rows}
 
 
+@st.cache_data(ttl=60)
 def load_income_statement(period_date):
     """Load income statement for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -252,6 +257,7 @@ def load_income_statement(period_date):
     return {r["account"]: r["amount"] for r in rows}
 
 
+@st.cache_data(ttl=60)
 def load_cash_flow(period_date):
     """Load cash flow metrics for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -262,6 +268,7 @@ def load_cash_flow(period_date):
     return {r["metric"]: r["value"] for r in rows}
 
 
+@st.cache_data(ttl=60)
 def load_totals(period_date):
     """Load computed totals for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -272,6 +279,7 @@ def load_totals(period_date):
     return {r["metric"]: r["value"] for r in rows}
 
 
+@st.cache_data(ttl=60)
 def load_transactions(period_date):
     """Load transactions for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -281,6 +289,7 @@ def load_transactions(period_date):
             (pd_str,))
 
 
+@st.cache_data(ttl=60)
 def load_journal_entries(period_date):
     """Load journal entries with their lines for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -310,6 +319,7 @@ def load_journal_entries(period_date):
     return result
 
 
+@st.cache_data(ttl=60)
 def load_all_journal_entries_through(period_date):
     """Load ALL journal entries from all periods through the given date."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -339,6 +349,7 @@ def load_all_journal_entries_through(period_date):
     return result
 
 
+@st.cache_data(ttl=60)
 def load_distributions(period_date):
     """Load distribution amounts for a period."""
     pd_str = period_date.isoformat() if isinstance(period_date, date) else period_date
@@ -349,6 +360,7 @@ def load_distributions(period_date):
     return {r["investor_key"]: r["amount"] for r in rows}
 
 
+@st.cache_data(ttl=60)
 def load_all_distributions():
     """Load all distribution snapshots across all periods."""
     with get_connection() as conn:
@@ -364,6 +376,7 @@ def load_all_distributions():
     return result
 
 
+@st.cache_data(ttl=60)
 def load_all_balance_sheets():
     """Load balance sheets for all posted periods."""
     with get_connection() as conn:
@@ -379,6 +392,7 @@ def load_all_balance_sheets():
     return result
 
 
+@st.cache_data(ttl=60)
 def load_all_income_statements():
     """Load income statements for all posted periods."""
     with get_connection() as conn:
@@ -394,6 +408,7 @@ def load_all_income_statements():
     return result
 
 
+@st.cache_data(ttl=60)
 def load_all_cash_flows():
     """Load cash flow snapshots for all posted periods."""
     with get_connection() as conn:
@@ -409,6 +424,7 @@ def load_all_cash_flows():
     return result
 
 
+@st.cache_data(ttl=60)
 def load_all_totals():
     """Load totals snapshots for all posted periods."""
     with get_connection() as conn:
@@ -424,6 +440,58 @@ def load_all_totals():
     return result
 
 
+@st.cache_data(ttl=60)
+def load_all_period_data():
+    """Batch-load all balance sheets, income statements, cash flows, and totals
+    in a single database connection. Returns (all_bs, all_is, all_cf, all_totals)."""
+    with get_connection() as conn:
+        # Balance sheets
+        bs_rows = _fetchall(conn,
+            "SELECT period_date, account, amount FROM balance_sheet_snapshots "
+            "ORDER BY period_date")
+        all_bs = {}
+        for r in bs_rows:
+            pd = r["period_date"]
+            if pd not in all_bs:
+                all_bs[pd] = {}
+            all_bs[pd][r["account"]] = r["amount"]
+
+        # Income statements
+        is_rows = _fetchall(conn,
+            "SELECT period_date, account, amount FROM income_statement_snapshots "
+            "ORDER BY period_date")
+        all_is = {}
+        for r in is_rows:
+            pd = r["period_date"]
+            if pd not in all_is:
+                all_is[pd] = {}
+            all_is[pd][r["account"]] = r["amount"]
+
+        # Cash flows
+        cf_rows = _fetchall(conn,
+            "SELECT period_date, metric, value FROM cash_flow_snapshots "
+            "ORDER BY period_date")
+        all_cf = {}
+        for r in cf_rows:
+            pd = r["period_date"]
+            if pd not in all_cf:
+                all_cf[pd] = {}
+            all_cf[pd][r["metric"]] = r["value"]
+
+        # Totals
+        totals_rows = _fetchall(conn,
+            "SELECT period_date, metric, value FROM totals_snapshots "
+            "ORDER BY period_date")
+        all_totals = {}
+        for r in totals_rows:
+            pd = r["period_date"]
+            if pd not in all_totals:
+                all_totals[pd] = {}
+            all_totals[pd][r["metric"]] = r["value"]
+
+    return all_bs, all_is, all_cf, all_totals
+
+
 # --- Depreciation Tracking ---
 
 def is_depreciation_posted(quarter_key):
@@ -435,6 +503,7 @@ def is_depreciation_posted(quarter_key):
     return row is not None
 
 
+@st.cache_data(ttl=60)
 def get_posted_depreciation():
     """Return all quarters with posted depreciation."""
     with get_connection() as conn:
@@ -451,6 +520,7 @@ def save_depreciation_posted(quarter_key, total_depreciation):
             "ON CONFLICT (quarter_key) DO UPDATE SET "
             "posted_at = EXCLUDED.posted_at, total_depreciation = EXCLUDED.total_depreciation",
             (quarter_key, datetime.now().isoformat(), total_depreciation))
+    st.cache_data.clear()
 
 
 def save_depreciation_journal_entry(quarter_end_date, entry):
@@ -478,6 +548,7 @@ def save_depreciation_journal_entry(quarter_end_date, entry):
                 "VALUES (%s, %s, %s)",
                 (entry_id, acct, amt)
             )
+    st.cache_data.clear()
 
 
 # --- Year-End Close ---
@@ -490,6 +561,7 @@ def is_year_closed(year):
     return row is not None and row["locked"] == 1
 
 
+@st.cache_data(ttl=60)
 def get_closed_years():
     """Return all closed years with their details."""
     with get_connection() as conn:
@@ -510,6 +582,7 @@ def save_year_close(year, cy_net_income, re_before, re_after):
             "retained_earnings_after = EXCLUDED.retained_earnings_after, "
             "locked = EXCLUDED.locked",
             (year, datetime.now().isoformat(), cy_net_income, re_before, re_after))
+    st.cache_data.clear()
 
 
 def get_year_close_prerequisites(year):
@@ -563,8 +636,10 @@ def clear_alert(alert_key):
             "INSERT INTO cleared_alerts (alert_key, cleared_at) VALUES (%s, %s) "
             "ON CONFLICT (alert_key) DO UPDATE SET cleared_at = EXCLUDED.cleared_at",
             (alert_key, datetime.now().isoformat()))
+    st.cache_data.clear()
 
 
+@st.cache_data(ttl=60)
 def get_cleared_alerts():
     """Return all cleared alert keys."""
     with get_connection() as conn:
@@ -577,9 +652,11 @@ def unclear_alert(alert_key):
     with get_connection() as conn:
         _execute(conn,
             "DELETE FROM cleared_alerts WHERE alert_key = %s", (alert_key,))
+    st.cache_data.clear()
 
 
 def clear_all_alerts():
     """Clear all alerts."""
     with get_connection() as conn:
         _execute(conn, "DELETE FROM cleared_alerts")
+    st.cache_data.clear()
