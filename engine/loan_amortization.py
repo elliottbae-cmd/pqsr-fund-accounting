@@ -78,3 +78,26 @@ def get_total_principal_paid(schedule, through_date):
         entry["principal"] for entry in schedule
         if entry["payment_date"] <= through_date
     )
+
+
+def get_ytd_principal_paid(schedule, year, through_date):
+    """Get year-to-date principal paid for a given year through a given date.
+
+    Used to match the YTD income statement when computing DSCR/FCF for
+    interim periods. The IS in roll_forward() is YTD, so principal must
+    also be YTD for consistent ratios.
+    """
+    return sum(
+        entry["principal"] for entry in schedule
+        if entry["payment_date"].year == year
+        and entry["payment_date"] <= through_date
+    )
+
+
+def get_ytd_interest_paid(schedule, year, through_date):
+    """Get year-to-date interest paid for a given year through a given date."""
+    return sum(
+        entry["interest"] for entry in schedule
+        if entry["payment_date"].year == year
+        and entry["payment_date"] <= through_date
+    )

@@ -156,23 +156,16 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
         bs, is_accounts = roll_forward(all_entries, last_day)
         totals = compute_totals(bs)
 
-        # Loan / cash flow — use only months posted in this quarter
+        # Loan / cash flow — use YTD principal to match YTD income statement.
+        # The IS from roll_forward() is YTD (cumulative since year start), so
+        # principal must also be YTD for consistent EBITDA/Interest/Principal
+        # ratios (DSCR, FCF). Fixes bug where partial-quarter principal was
+        # mismatched with YTD revenue/expenses for non-quarter-end months.
+        from engine.loan_amortization import get_ytd_principal_paid
         amort_schedule = generate_amortization_schedule()
         quarter = (processing_month.month - 1) // 3 + 1
         year = processing_month.year
-        quarter_start_month = (quarter - 1) * 3 + 1
-        # Count how many months of this quarter have been posted
-        posted_months_in_qtr = []
-        for m in range(quarter_start_month, processing_month.month + 1):
-            if is_period_posted(date(year, m, 1)) or m == processing_month.month:
-                posted_months_in_qtr.append(m)
-        # Only sum principal for posted months (not full quarter)
-        quarterly_payments = get_payments_for_quarter(amort_schedule, year, quarter)
-        relevant_payments = [
-            p for p in quarterly_payments
-            if p["payment_date"].month in posted_months_in_qtr
-        ]
-        period_principal = sum(p["principal"] for p in relevant_payments)
+        period_principal = get_ytd_principal_paid(amort_schedule, year, last_day)
         cash_flow = compute_cash_flow_metrics(is_accounts, period_principal)
 
         # Distributions (quarter-end only)
@@ -189,11 +182,12 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
                 prior_is = load_income_statement(prior_period)
                 if prior_is:
                     quarterly_rent = is_accounts["Rental Income"] - prior_is.get("Rental Income", 0)
-            # Use only loan payments for months actually posted in this quarter
-            # (not full quarter if only partially posted)
+            # Use full quarter loan payments (this branch only runs at quarter-end
+            # when all 3 months have been posted)
+            quarterly_payments = get_payments_for_quarter(amort_schedule, year, quarter)
             distributions = calculate_quarterly_distribution(
                 quarterly_rent,
-                sum(p["payment"] for p in relevant_payments),
+                sum(p["payment"] for p in quarterly_payments),
             )
 
         # Save everything to database
