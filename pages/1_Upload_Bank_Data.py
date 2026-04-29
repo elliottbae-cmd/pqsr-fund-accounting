@@ -7,7 +7,7 @@ if not check_password():
 import pandas as pd
 from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data
-from config.fund_config import EXPENSE_CATEGORIES
+from config.fund_config import EXPENSE_CATEGORIES, PROPERTIES
 from database.db import get_next_expected_month, get_posted_periods, is_period_posted
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
@@ -213,6 +213,57 @@ if uploaded_files:
                 })
             auto_df = pd.DataFrame(auto_rows)
             st.dataframe(auto_df, use_container_width=True, hide_index=True)
+
+        # --- Property Override Section ---
+        # Property classification is informational only (rent rolls up to a single
+        # "Rental Income" account in the GL), but this lets users correct any
+        # mis-classification before the transaction record is stored.
+        rent_txns = [(i, t) for i, t in enumerate(classified) if t["category"] == "rent"]
+        if rent_txns:
+            with st.expander(
+                "Override Property Assignment ({} rent transaction{})".format(
+                    len(rent_txns), "" if len(rent_txns) == 1 else "s"
+                ),
+                expanded=False,
+            ):
+                st.caption(
+                    "Property classification is informational only — it does not "
+                    "affect journal entries or financial statements. Use this to "
+                    "correct any mis-classified rent payments before posting."
+                )
+                property_options = list(PROPERTIES.keys())
+
+                for idx, txn in rent_txns:
+                    d = txn["date"]
+                    date_str = d.strftime("%m/%d/%Y") if hasattr(d, "strftime") else str(d)
+                    credit_val = txn.get("credit", 0) or 0
+                    current_prop = txn.get("property") or property_options[0]
+
+                    label = "{} | {} | ${:,.2f}".format(
+                        date_str,
+                        txn["description"][:50],
+                        credit_val,
+                    )
+
+                    col1, col2 = st.columns([3, 2])
+                    with col1:
+                        st.text(label)
+                    with col2:
+                        new_prop = st.selectbox(
+                            "Property",
+                            property_options,
+                            index=property_options.index(current_prop)
+                                if current_prop in property_options else 0,
+                            format_func=lambda k: PROPERTIES[k]["name"],
+                            key="prop_override_{}".format(idx),
+                            label_visibility="collapsed",
+                        )
+                        if new_prop != current_prop:
+                            classified[idx]["property"] = new_prop
+                            classified[idx]["details"] = "Rent - {} (manually overridden)".format(
+                                PROPERTIES[new_prop]["name"]
+                            )
+                            st.session_state.classified_transactions = classified
 
         # Handle unrecognized transactions
         if manual_count > 0:
