@@ -7,7 +7,7 @@ if not check_password():
 import pandas as pd
 from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data
-from config.fund_config import EXPENSE_CATEGORIES, PROPERTIES
+from config.fund_config import EXPENSE_CATEGORIES, PROPERTIES, INVESTORS
 from database.db import get_next_expected_month, get_posted_periods, is_period_posted
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
@@ -290,21 +290,40 @@ if uploaded_files:
                     date_label, desc_label, amt_label
                 )
 
+                # Options = expense categories plus a "Distribution - <investor>"
+                # choice for each owner, so generic-memo debits that are actually
+                # distributions can be assigned to the correct investor by hand.
+                dist_label_to_key = {
+                    "Distribution - {}".format(INVESTORS[k]["full_name"]): k
+                    for k in INVESTORS
+                }
+                category_options = EXPENSE_CATEGORIES + list(dist_label_to_key.keys())
+
                 with st.expander(expander_label):
                     category = st.selectbox(
                         "Select category",
-                        EXPENSE_CATEGORIES,
+                        category_options,
                         key="cat_{}".format(i),
                     )
                     if st.button("Apply", key="apply_{}".format(i)):
-                        txn["category"] = category.lower().replace(
-                            " & ", "_"
-                        ).replace(" ", "_")
-                        txn["expense_category"] = category
-                        txn["confidence"] = "manual_classified"
-                        txn["details"] = "{} (manually classified)".format(
-                            category
-                        )
+                        if category in dist_label_to_key:
+                            inv_key = dist_label_to_key[category]
+                            txn["category"] = "distribution"
+                            txn["investor"] = inv_key
+                            txn["property"] = None
+                            txn["confidence"] = "manual_classified"
+                            txn["details"] = "Distribution - {} (manually classified)".format(
+                                INVESTORS[inv_key]["full_name"]
+                            )
+                        else:
+                            txn["category"] = category.lower().replace(
+                                " & ", "_"
+                            ).replace(" ", "_")
+                            txn["expense_category"] = category
+                            txn["confidence"] = "manual_classified"
+                            txn["details"] = "{} (manually classified)".format(
+                                category
+                            )
                         st.session_state.classified_transactions = classified
                         st.rerun()
 

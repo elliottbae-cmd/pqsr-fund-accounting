@@ -81,6 +81,15 @@ def inject_custom_css():
             margin-bottom: 16px;
         }
 
+        /* ===== MAIN CONTENT TOP SPACING ===== */
+        /* Ensure the page header (first element) isn't clipped against the
+           top edge of the main container. */
+        [data-testid="stMainBlockContainer"],
+        [data-testid="stAppViewBlockContainer"],
+        .main .block-container {
+            padding-top: 3rem !important;
+        }
+
         /* ===== PAGE HEADERS ===== */
         .main h1 {
             color: """ + TEXT_DARK + """;
