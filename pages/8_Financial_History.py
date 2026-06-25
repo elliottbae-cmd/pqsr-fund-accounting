@@ -284,7 +284,10 @@ with tabs[1]:
         "Change": "",
     })
 
-    st.dataframe(pd.DataFrame(is_rows), hide_index=True, use_container_width=True, height=600)
+    # The IS compares current-year YTD against the FULL prior fiscal year, so
+    # label the delta column "vs FY2025" rather than the ambiguous "Change".
+    _is_df = pd.DataFrame(is_rows).rename(columns={"Change": "vs FY2025"})
+    st.dataframe(_is_df, hide_index=True, use_container_width=True, height=600)
 
 
 # ==================== AJEs ====================

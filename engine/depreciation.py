@@ -131,9 +131,13 @@ def generate_fa_schedule(through_date, baseline_ad=None):
             else:
                 year_depr = 0
 
-            # For the current year if not yet complete, prorate by quarters posted
+            # For the current year if not yet complete, prorate by COMPLETED
+            # quarters (depreciation books at each quarter-end). month // 3 gives
+            # full quarters elapsed: Mar->1, Jun->2, Sep->3. The previous
+            # (month-1)//3+1 rounded UP to the containing quarter, booking a full
+            # extra quarter for any mid-quarter as-of date (e.g. May showed 2).
             if year == through_date.year and through_date.month < 12:
-                quarters_in_year = (through_date.month - 1) // 3 + 1
+                quarters_in_year = through_date.month // 3
                 if year == inception_year:
                     year_depr = depr_2023  # Partial first year is what it is
                 else:

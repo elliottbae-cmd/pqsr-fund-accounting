@@ -24,6 +24,7 @@ def generate_monthly_ajes(classified_transactions, month_date):
     rent_total = 0.0
     rent_details = []
     loan_payment = None
+    loan_payment_fallback = 0.0  # actual debit(s) with no amortization-row match
     distributions = {}
     expenses = {}
     cash_in = 0.0
@@ -44,6 +45,11 @@ def generate_monthly_ajes(classified_transactions, month_date):
             payment_entry = get_payment_for_date(amort_schedule, month_date)
             if payment_entry:
                 loan_payment = payment_entry
+            else:
+                # No amortization row for this month (e.g. past maturity, or a
+                # schedule gap). Don't drop the payment — keep the actual bank
+                # debit so cash isn't overstated.
+                loan_payment_fallback += debit
 
         elif txn["category"] == "distribution":
             inv_key = txn["investor"]
@@ -85,6 +91,13 @@ def generate_monthly_ajes(classified_transactions, month_date):
         debits["Interest Expense"] = loan_payment["interest"]
         debits["Note Payable - BBV"] = loan_payment["principal"]
         credits["Cash"] = credits.get("Cash", 0) + LOAN["monthly_payment"]
+    elif loan_payment_fallback > 0:
+        # Schedule had no row for this month — post the actual payment so the
+        # entry still balances and cash is correct. No interest/principal split
+        # is available, so book it all to Interest Expense (past maturity there
+        # is no remaining principal anyway).
+        debits["Interest Expense"] = debits.get("Interest Expense", 0) + loan_payment_fallback
+        credits["Cash"] = credits.get("Cash", 0) + loan_payment_fallback
 
     # Distributions
     for inv_key, amount in distributions.items():

@@ -543,6 +543,18 @@ def save_depreciation_journal_entry(quarter_end_date, entry):
 
     with get_connection() as conn:
         cur = conn.cursor()
+        # Idempotency: drop any existing depreciation entry (and its lines) for
+        # this period before inserting, so a re-book cannot double-count
+        # depreciation into every future roll-forward.
+        cur.execute(
+            "SELECT id FROM journal_entries "
+            "WHERE period_date = %s AND entry_type = 'depreciation'",
+            (pd_str,)
+        )
+        old_ids = [row[0] for row in cur.fetchall()]
+        if old_ids:
+            cur.execute("DELETE FROM journal_entry_lines WHERE entry_id = ANY(%s)", (old_ids,))
+            cur.execute("DELETE FROM journal_entries WHERE id = ANY(%s)", (old_ids,))
         entry_date_str = quarter_end_date.isoformat()
         cur.execute(
             "INSERT INTO journal_entries (period_date, entry_date, description, entry_type) "

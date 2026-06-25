@@ -206,6 +206,17 @@ if st.button(
     type="primary",
 ):
     with st.spinner("Booking depreciation and recalculating financials..."):
+        # Re-check the year-lock right before writing (it may have been closed
+        # after this page rendered) so we don't write an orphan depreciation
+        # entry into a year that save_period would then refuse to recompute.
+        if is_year_closed(selected["year"]):
+            st.error(
+                "Fiscal year {} is closed and locked. Cannot book depreciation.".format(
+                    selected["year"]
+                )
+            )
+            st.stop()
+
         # 1. Save the depreciation journal entry to DB
         save_depreciation_journal_entry(selected["quarter_end"], depr_entry)
 

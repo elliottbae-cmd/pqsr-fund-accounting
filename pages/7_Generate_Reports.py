@@ -148,7 +148,14 @@ distribution_data = {
 # no prior in its year, so YTD == the quarter). Using YTD EBITDA directly would
 # double-count (e.g. Q2 = H1) and, by only adding the selected quarter, would
 # skip intermediate quarters and break the trailing-12 window.
-quarterly_noi = dict(QUARTERLY_NOI)  # 2025 quarters (already single-quarter)
+# 2025 quarters (already single-quarter), relabeled from "Q3 2025" to the same
+# "Q3'25  NOI" format used for the computed quarters so the trailing-12 columns
+# read consistently.
+quarterly_noi = {}
+for _k, _v in QUARTERLY_NOI.items():
+    _parts = _k.split()
+    _lbl = "{}'{}  NOI".format(_parts[0], _parts[1][2:]) if len(_parts) == 2 else _k
+    quarterly_noi[_lbl] = _v
 
 def _ytd_ebitda(qp):
     # Use the already-loaded snapshot for the selected period (handles the

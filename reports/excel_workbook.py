@@ -110,13 +110,16 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
     _write_row(ws_is, r, "Rental Income", is_accounts["Rental Income"]); r += 2
 
     ws_is.cell(row=r, column=1, value="EXPENSES").font = BOLD_FONT; r += 1
-    for exp in ["Interest Expense", "Appraisals", "Accounting & Tax Fees",
-                 "Bank Fees", "Taxes & Licenses", "Survey Fees",
-                 "Origination Fee - Amort", "Depreciation Expense", "Other"]:
+    expense_accounts = ["Interest Expense", "Appraisals", "Accounting & Tax Fees",
+                        "Bank Fees", "Taxes & Licenses", "Survey Fees",
+                        "Origination Fee - Amort", "Depreciation Expense", "Other"]
+    for exp in expense_accounts:
         val = is_accounts.get(exp, 0)
         _write_row(ws_is, r, exp, val if val else 0); r += 1
 
-    total_exp = sum(is_accounts[k] for k in is_accounts if k != "Rental Income")
+    # Sum the SAME accounts that are displayed so the column always foots to its
+    # visible rows (these match the engine's IS expense accounts).
+    total_exp = sum(is_accounts.get(k, 0) for k in expense_accounts)
     _write_row(ws_is, r, "Total Expenses", total_exp, bold=True); r += 1
     net_inc = is_accounts["Rental Income"] - total_exp
     _write_row(ws_is, r, "Net Income", net_inc, bold=True); r += 2

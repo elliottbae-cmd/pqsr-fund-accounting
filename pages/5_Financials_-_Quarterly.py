@@ -489,7 +489,14 @@ for q_idx, q_num in enumerate(range(1, 5)):
                 quarterly_payments = get_payments_for_quarter(
                     amort_schedule, selected_year, q_num
                 )
-                total_loan = sum(p["payment"] for p in quarterly_payments)
+                # Only subtract debt service for the months actually posted, so
+                # a partial-quarter projection compares partial income with
+                # partial debt service (not a full quarter of payments).
+                posted_months = {date.fromisoformat(pk).month for pk in qd["periods"]}
+                total_loan = sum(
+                    p["payment"] for p in quarterly_payments
+                    if p["payment_date"].month in posted_months
+                )
                 distributable = max(rental_income - total_loan, 0)
                 per_investor = {
                     k: distributable * INVESTORS[k]["ownership_pct"] for k in INVESTORS

@@ -4,11 +4,6 @@ import re
 from config.fund_config import PROPERTIES, INVESTORS
 
 
-# Amount-based rent matching (for ACH payments with identical descriptions)
-RENT_BY_AMOUNT = {
-    round(p["monthly_rent"], 2): key for key, p in PROPERTIES.items()
-}
-
 # Description patterns for classification
 CLASSIFICATION_RULES = [
     {
@@ -106,15 +101,21 @@ def classify_transaction(description, debit, credit):
             "details": "Accounting & Tax Fee reimbursement (online transfer in)",
         }
 
-    # For RAM-Z CUSTARD ACH payments, match by credit amount to identify property
+    # For RAM-Z CUSTARD ACH payments, match by credit amount to identify the
+    # property. Use a small tolerance (the five rents are all >$130 apart, so $1
+    # is unambiguous) so a payment a few cents off (rounding / CAM drift) still
+    # auto-matches instead of dropping to manual. Pick the closest property.
     if re.search(r"(?i)RAM-Z CUSTARD.*ACH", description) and credit > 0:
-        rounded = round(credit, 2)
-        if rounded in RENT_BY_AMOUNT:
-            prop_key = RENT_BY_AMOUNT[rounded]
-            prop = PROPERTIES[prop_key]
+        best_key, best_diff = None, None
+        for key, p in PROPERTIES.items():
+            diff = abs(p["monthly_rent"] - credit)
+            if diff <= 1.00 and (best_diff is None or diff < best_diff):
+                best_key, best_diff = key, diff
+        if best_key:
+            prop = PROPERTIES[best_key]
             return {
                 "category": "rent",
-                "property": prop_key,
+                "property": best_key,
                 "investor": None,
                 "confidence": "auto",
                 "details": "Rent - {} (matched by amount)".format(prop["name"]),

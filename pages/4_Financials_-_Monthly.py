@@ -75,8 +75,19 @@ def _compute_monthly_delta_is(period_keys_list, all_is_data, baseline_is):
     for i, pk in enumerate(period_keys_list):
         current = all_is_data.get(pk, {})
         if i == 0:
-            # Delta from baseline
-            prior = baseline_is
+            pk_date = date.fromisoformat(pk)
+            if pk_date.month == 1:
+                # January: IS resets at year-start, so the month's activity is
+                # its own YTD figure (prior = zeros).
+                prior = baseline_is
+            else:
+                # Year didn't start in January (mid-year onboarding / gap). Use
+                # the immediately-prior calendar month's snapshot if it exists;
+                # otherwise fall back to zeros (this column is then cumulative
+                # from year-start — the prior months were never posted, so a
+                # single-month figure can't be isolated).
+                prior_pk = date(pk_date.year, pk_date.month - 1, 1).isoformat()
+                prior = all_is_data.get(prior_pk, baseline_is)
         else:
             prior = all_is_data.get(period_keys_list[i - 1], {})
 
