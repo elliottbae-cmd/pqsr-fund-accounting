@@ -82,14 +82,20 @@ def inject_custom_css():
         }
 
         /* ===== MAIN CONTENT TOP SPACING ===== */
-        /* Ensure the page header (first element) isn't clipped behind the
-           fixed top header bar. .block-container is the stable cross-version
-           class; the testids cover newer/older Streamlit builds. */
+        /* The fixed top header bar was painting over the page title. Make the
+           bar transparent so it can never cover content, AND add generous top
+           padding so the title clears it regardless of the bar's height or the
+           Streamlit version. [class*="block-container"] catches the hashed
+           emotion class names used across Streamlit builds. */
+        [data-testid="stHeader"],
+        header[data-testid="stHeader"] {
+            background: transparent !important;
+            background-color: transparent !important;
+        }
         .block-container,
         [data-testid="stMainBlockContainer"],
-        [data-testid="stAppViewContainer"] .block-container,
-        section.main > div.block-container {
-            padding-top: 4rem !important;
+        [class*="block-container"] {
+            padding-top: 5rem !important;
         }
 
         /* ===== PAGE HEADERS ===== */
