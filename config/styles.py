@@ -95,7 +95,7 @@ def inject_custom_css():
         .block-container,
         [data-testid="stMainBlockContainer"],
         [class*="block-container"] {
-            padding-top: 5rem !important;
+            padding-top: 1rem !important;
         }
 
         /* ===== PAGE HEADERS ===== */
@@ -240,7 +240,7 @@ def inject_custom_css():
 
 # Visible build marker — bump on each deploy so we can confirm from the UI
 # exactly which version Streamlit Cloud is actually running.
-APP_BUILD = "build hdr-4"
+APP_BUILD = "build hdr-5"
 
 
 def show_sidebar_branding():
@@ -317,8 +317,12 @@ def format_pct(val, decimals=2):
 
 def styled_page_header(title, subtitle=None):
     """Render a professional page header with gold underline."""
+    # NOTE: top padding is applied INLINE here (not via the injected <style>
+    # block) because newer Streamlit on Cloud sanitizes <style> tags inside
+    # st.markdown, which silently dropped the container-padding fix. Inline
+    # styles are always honored, so this reliably clears the fixed top bar.
     html = (
-        "<div style='margin-bottom: 24px;'>"
+        "<div style='margin-bottom: 24px; padding-top: 4rem;'>"
         "<h2 style='color: {}; margin-bottom: 4px; font-weight: 700;'>{}</h2>".format(
             TEXT_DARK, title
         )
