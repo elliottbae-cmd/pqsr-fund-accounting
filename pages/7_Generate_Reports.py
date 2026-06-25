@@ -16,7 +16,6 @@ from engine.loan_amortization import (
     generate_amortization_schedule, get_ending_balance_at_date,
     get_total_principal_paid, get_payments_for_quarter,
 )
-from engine.distributions import calculate_quarterly_distribution
 from reports.investor_report_pdf import generate_investor_report
 from reports.excel_workbook import generate_excel_workbook
 from database.db import (
@@ -104,53 +103,37 @@ journal_entries = load_all_journal_entries_through(selected_period)
 amort_schedule = generate_amortization_schedule()
 loan_balance = get_ending_balance_at_date(amort_schedule, as_of_date)
 total_principal = get_total_principal_paid(amort_schedule, as_of_date)
-quarterly_payments = get_payments_for_quarter(amort_schedule, year, quarter)
-quarterly_principal = sum(p["principal"] for p in quarterly_payments)
 
-# Distribution calculation — use quarterly rent, not YTD cumulative
-quarterly_rent = is_accounts.get("Rental Income", 0)
-if quarter > 1:
-    prior_qtr_end_month = (quarter - 1) * 3
-    prior_period = date(selected_period.year, prior_qtr_end_month, 1)
-    prior_is = load_income_statement(prior_period)
-    if prior_is:
-        quarterly_rent = is_accounts.get("Rental Income", 0) - prior_is.get("Rental Income", 0)
-current_qtr_dist = calculate_quarterly_distribution(
-    quarterly_rent,
-    sum(p["payment"] for p in quarterly_payments),
-)
-
-# Build distribution history including current quarter
-dist_history = dict(DISTRIBUTION_HISTORY)
-
-# Add any DB-stored distributions from prior quarters
+# Distributions — use ACTUAL amounts booked to the GL (Distributions - <inv>),
+# not the theoretical formula. load_all_distributions() returns the real
+# distributions summed per quarter, keyed by quarter-end period.
 db_dists = load_all_distributions()
+
+# Build distribution history: static 2024-2025 actuals + GL actuals for 2026+.
+dist_history = dict(DISTRIBUTION_HISTORY)
 for pd_str, amounts in db_dists.items():
     pd_obj = date.fromisoformat(pd_str)
     q = (pd_obj.month - 1) // 3 + 1
     label = "Q{} {}".format(q, pd_obj.year)
-    if label not in dist_history:
-        total = sum(amounts.values())
-        dist_history[label] = {"total": total}
-        dist_history[label].update(amounts)
+    entry = {"total": sum(amounts.values())}
+    entry.update(amounts)
+    dist_history[label] = entry
 
-dist_history[quarter_label] = current_qtr_dist
+# Current (selected) quarter's actual distribution
+selected_qkey = date(year, quarter * 3, 1).isoformat()
+current_amounts = db_dists.get(selected_qkey, {})
+current_qtr_dist = dict(current_amounts)
+current_qtr_dist["total"] = sum(current_amounts.values())
 
-# Cumulative totals
+# Cumulative = through-baseline (2024-2025) + actual 2026+ distributions
 cumulative_total = TOTAL_DISTRIBUTIONS_THROUGH_BASELINE + sum(
     sum(amounts.values()) for amounts in db_dists.values()
 )
-if quarter_label not in db_dists:
-    cumulative_total += current_qtr_dist["total"]
-
 cumulative_by_investor = {}
 for inv_key in INVESTORS:
     prior = sum(d.get(inv_key, 0) for d in DISTRIBUTION_HISTORY.values())
-    db_prior = sum(amounts.get(inv_key, 0) for amounts in db_dists.values())
-    current = current_qtr_dist.get(inv_key, 0)
-    cumulative_by_investor[inv_key] = prior + db_prior + (
-        current if quarter_label not in db_dists else 0
-    )
+    actual = sum(amounts.get(inv_key, 0) for amounts in db_dists.values())
+    cumulative_by_investor[inv_key] = prior + actual
 
 distribution_data = {
     "current_quarter": current_qtr_dist,

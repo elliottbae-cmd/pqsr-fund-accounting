@@ -468,29 +468,38 @@ for q_idx, q_num in enumerate(range(1, 5)):
                     "Q{} is not yet complete.".format(q_num)
                 )
 
-            # Show projected/actual distributions
-            rental_income = is_delta.get("Rental Income", 0)
-            quarterly_payments = get_payments_for_quarter(
-                amort_schedule, selected_year, q_num
-            )
-            total_loan = sum(p["payment"] for p in quarterly_payments)
+            # Distributions: ACTUAL (from the GL) for completed quarters,
+            # PROJECTED (formula) only while the quarter is still in progress.
+            all_dists = load_all_distributions()
+            qkey = date(selected_year, q_num * 3, 1).isoformat()
+            actual_amounts = all_dists.get(qkey)
 
-            distributable = rental_income - total_loan
-            if distributable < 0:
-                distributable = 0
+            if is_complete and actual_amounts:
+                status_label = "Actual"
+                per_investor = {k: actual_amounts.get(k, 0) for k in INVESTORS}
+                distributable = sum(per_investor.values())
+            else:
+                status_label = "Projected"
+                rental_income = is_delta.get("Rental Income", 0)
+                quarterly_payments = get_payments_for_quarter(
+                    amort_schedule, selected_year, q_num
+                )
+                total_loan = sum(p["payment"] for p in quarterly_payments)
+                distributable = max(rental_income - total_loan, 0)
+                per_investor = {
+                    k: distributable * INVESTORS[k]["ownership_pct"] for k in INVESTORS
+                }
 
-            status_label = "Actual" if is_complete else "Projected"
             st.markdown("##### {} Distribution — Q{} {}".format(
                 status_label, q_num, selected_year
             ))
 
             dist_rows = []
             for inv_key, inv in INVESTORS.items():
-                inv_dist = distributable * inv["ownership_pct"]
                 dist_rows.append({
                     "Investor": inv["full_name"],
                     "Ownership %": "{:.2%}".format(inv["ownership_pct"]),
-                    "Distribution": "${:,.2f}".format(inv_dist),
+                    "Distribution": "${:,.2f}".format(per_investor[inv_key]),
                 })
             dist_rows.append({
                 "Investor": "**Total**",

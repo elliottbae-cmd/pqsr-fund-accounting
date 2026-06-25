@@ -362,17 +362,31 @@ def load_distributions(period_date):
 
 @st.cache_data(ttl=60)
 def load_all_distributions():
-    """Load all distribution snapshots across all periods."""
+    """Actual distributions per quarter, summed from the GL 'Distributions - X'
+    journal entries (the real cash paid to investors), keyed by quarter-end
+    period ISO date (e.g. '2026-06-01').
+
+    NOTE: This intentionally sources from the general ledger, NOT the
+    distribution_snapshots table. Those snapshots store a *formula* estimate
+    (quarterly rent - debt service, split by ownership), which does not match
+    what was actually distributed. The GL reflects the real classified bank
+    distributions, so it is the source of truth for reporting.
+    """
     with get_connection() as conn:
         rows = _fetchall(conn,
-            "SELECT period_date, investor_key, amount FROM distribution_snapshots "
-            "ORDER BY period_date")
+            "SELECT je.entry_date, jel.account, jel.debit_amount "
+            "FROM journal_entry_lines jel "
+            "JOIN journal_entries je ON jel.entry_id = je.id "
+            "WHERE jel.account LIKE %s AND COALESCE(jel.debit_amount, 0) > 0",
+            ("Distributions - %",))
     result = {}
     for r in rows:
-        pd = r["period_date"]
-        if pd not in result:
-            result[pd] = {}
-        result[pd][r["investor_key"]] = r["amount"]
+        d = date.fromisoformat(r["entry_date"])
+        q = (d.month - 1) // 3 + 1
+        qkey = date(d.year, q * 3, 1).isoformat()  # quarter-end month, first day
+        inv_key = r["account"][len("Distributions - "):]
+        result.setdefault(qkey, {})
+        result[qkey][inv_key] = result[qkey].get(inv_key, 0) + (r["debit_amount"] or 0)
     return result
 
 
