@@ -9,7 +9,9 @@ from datetime import date
 from calendar import monthrange
 from engine.journal_entries import generate_depreciation_aje
 from engine.financial_engine import roll_forward, compute_totals, compute_cash_flow_metrics
-from engine.loan_amortization import generate_amortization_schedule, get_payments_for_quarter
+from engine.loan_amortization import (
+    generate_amortization_schedule, get_ytd_principal_paid,
+)
 from config.fund_config import FUND_NAME, FIXED_ASSETS, TOTAL_QUARTERLY_DEPRECIATION
 from database.db import (
     get_posted_periods, is_depreciation_posted, get_posted_depreciation,
@@ -218,13 +220,17 @@ if st.button(
         bs, is_accounts = roll_forward(all_entries, last_day)
         totals = compute_totals(bs)
 
-        # Recalculate cash flow
+        # Recalculate cash flow — use YTD principal (Jan 1 through quarter-end)
+        # to match the YTD income statement from roll_forward(), exactly as
+        # 2_Review_Journal_Entries.py does. Using quarterly principal here
+        # previously OVERWROTE the YTD value saved at posting, producing a
+        # DSCR/FCF mismatch (YTD EBITDA vs partial-quarter principal) — invisible
+        # in Q1 (YTD == quarter) but wrong from Q2 onward.
         amort_schedule = generate_amortization_schedule()
-        quarterly_payments = get_payments_for_quarter(
-            amort_schedule, selected["year"], selected["quarter"]
+        period_principal = get_ytd_principal_paid(
+            amort_schedule, selected["year"], last_day
         )
-        quarterly_principal = sum(p["principal"] for p in quarterly_payments)
-        cash_flow = compute_cash_flow_metrics(is_accounts, quarterly_principal)
+        cash_flow = compute_cash_flow_metrics(is_accounts, period_principal)
 
         # Load existing transactions for this period (don't overwrite them)
         existing_txns = load_transactions(selected["period_date"])
