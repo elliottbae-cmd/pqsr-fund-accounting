@@ -238,6 +238,11 @@ def inject_custom_css():
     """, unsafe_allow_html=True)
 
 
+# Visible build marker — bump on each deploy so we can confirm from the UI
+# exactly which version Streamlit Cloud is actually running.
+APP_BUILD = "build hdr-4"
+
+
 def show_sidebar_branding():
     """Display PQSR Fund I logo and branding in the sidebar."""
     if os.path.exists(LOGO_PATH):
@@ -245,6 +250,11 @@ def show_sidebar_branding():
     st.sidebar.markdown(
         "<p style='color: {}; font-size: 0.8rem; font-weight: 600; "
         "text-align: center; margin: 0; padding: 0;'>Accounting Portal</p>".format(GOLD_PRIMARY),
+        unsafe_allow_html=True,
+    )
+    st.sidebar.markdown(
+        "<p style='color: #BBBBBB; font-size: 0.65rem; text-align: center; "
+        "margin: 2px 0 0 0; padding: 0;'>{}</p>".format(APP_BUILD),
         unsafe_allow_html=True,
     )
 
