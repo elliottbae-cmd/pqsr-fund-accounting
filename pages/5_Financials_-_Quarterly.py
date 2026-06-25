@@ -430,12 +430,17 @@ for q_idx, q_num in enumerate(range(1, 5)):
                 )
             )
 
-            # Use the quarter-end cash flow snapshot
-            ebitda = cf_end.get("EBITDA", 0)
-            interest = cf_end.get("Interest Expense", 0)
-            principal = cf_end.get("Principal Payments", 0)
-            fcf = cf_end.get("FCF", 0)
-            dscr = cf_end.get("DSCR", 0)
+            # Quarter-only cash flow = YTD at quarter-end minus prior quarter-end
+            # YTD (snapshots are stored YTD). This mirrors the IS delta above so
+            # the cash-flow figures match the quarterly income statement instead
+            # of showing cumulative YTD under a "Q{n}" heading.
+            cf_prior = all_cf.get(prior_pk, {}) if prior_pk else {}
+            ebitda = cf_end.get("EBITDA", 0) - cf_prior.get("EBITDA", 0)
+            interest = cf_end.get("Interest Expense", 0) - cf_prior.get("Interest Expense", 0)
+            principal = cf_end.get("Principal Payments", 0) - cf_prior.get("Principal Payments", 0)
+            fcf = ebitda - interest - principal
+            _debt_service = interest + principal
+            dscr = ebitda / _debt_service if _debt_service else 0
 
             cf_rows = [
                 {"Metric": "EBITDA", "Amount": _fmt(ebitda)},
@@ -534,7 +539,17 @@ for q_num in range(1, 5):
     qtr_end_pk = _get_quarter_end_period(qd["periods"])
     prior_pk = _get_prior_quarter_end(q_num, selected_year, period_keys)
     is_delta = _compute_quarter_is_delta(qtr_end_pk, prior_pk, all_is, baseline_is)
-    cf_qtr = all_cf.get(qtr_end_pk, {})
+
+    # Quarter-only FCF/DSCR = YTD-at-quarter-end minus prior-quarter-end YTD,
+    # matching the quarterly income statement (snapshots are stored YTD).
+    cf_end_q = all_cf.get(qtr_end_pk, {})
+    cf_prior_q = all_cf.get(prior_pk, {}) if prior_pk else {}
+    q_ebitda = cf_end_q.get("EBITDA", 0) - cf_prior_q.get("EBITDA", 0)
+    q_interest = cf_end_q.get("Interest Expense", 0) - cf_prior_q.get("Interest Expense", 0)
+    q_principal = cf_end_q.get("Principal Payments", 0) - cf_prior_q.get("Principal Payments", 0)
+    q_fcf = q_ebitda - q_interest - q_principal
+    _q_ds = q_interest + q_principal
+    q_dscr = q_ebitda / _q_ds if _q_ds else 0
 
     total_exp = sum(is_delta.get(k, 0) for k in is_delta if k != "Rental Income")
     net_inc = is_delta.get("Rental Income", 0) - total_exp
@@ -549,8 +564,8 @@ for q_num in range(1, 5):
         "Months Posted": ", ".join(qd["months_posted"]),
         "Rental Income": _fmt(is_delta.get("Rental Income", 0)),
         "Net Income": _fmt(net_inc),
-        "FCF": _fmt(cf_qtr.get("FCF", 0)),
-        "DSCR": "{:.4f}x".format(cf_qtr.get("DSCR", 0)) if cf_qtr.get("DSCR") else "-",
+        "FCF": _fmt(q_fcf),
+        "DSCR": "{:.4f}x".format(q_dscr) if q_dscr else "-",
     })
 
 st.dataframe(pd.DataFrame(summary_rows), hide_index=True, use_container_width=True)

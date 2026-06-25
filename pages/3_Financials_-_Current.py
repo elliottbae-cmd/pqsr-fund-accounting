@@ -247,7 +247,11 @@ with tab2:
     )
 
 with tab3:
-    st.markdown("**Cash Flow Metrics | Q{} {}**".format(quarter, year))
+    # These metrics come from the period snapshot, which is YTD (cumulative
+    # since year start) — label it as such rather than as a single quarter.
+    st.markdown("**Cash Flow Metrics | YTD through {}**".format(
+        as_of_date.strftime("%m/%d/%Y")
+    ))
 
     cf_ebitda = cash_flow_data.get("EBITDA", 0)
     cf_interest = cash_flow_data.get("Interest Expense", 0)

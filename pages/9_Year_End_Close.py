@@ -334,19 +334,27 @@ if st.button(
         updated_bs = dict(bs)
         updated_bs["CY Net Income"] = 0.0
         updated_bs["Retained Earnings"] = re_after_close
+        # Update the stored December snapshot via the Postgres layer. The
+        # December period is already posted, so these rows exist — UPDATE them.
+        # (Earlier code used SQLite syntax — conn.execute / INSERT OR REPLACE /
+        # '?' — which crashes against the Supabase/psycopg2 connection AFTER the
+        # year was already locked, leaving the close half-applied.)
+        import streamlit as _st
         from database.db import get_connection
         dec_pd_str = dec_period.isoformat()
         with get_connection() as conn:
-            conn.execute(
-                "INSERT OR REPLACE INTO balance_sheet_snapshots "
-                "(period_date, account, amount) VALUES (?, ?, ?)",
-                (dec_pd_str, "CY Net Income", 0.0)
+            cur = conn.cursor()
+            cur.execute(
+                "UPDATE balance_sheet_snapshots SET amount = %s "
+                "WHERE period_date = %s AND account = %s",
+                (0.0, dec_pd_str, "CY Net Income")
             )
-            conn.execute(
-                "INSERT OR REPLACE INTO balance_sheet_snapshots "
-                "(period_date, account, amount) VALUES (?, ?, ?)",
-                (dec_pd_str, "Retained Earnings", re_after_close)
+            cur.execute(
+                "UPDATE balance_sheet_snapshots SET amount = %s "
+                "WHERE period_date = %s AND account = %s",
+                (re_after_close, dec_pd_str, "Retained Earnings")
             )
+        _st.cache_data.clear()
 
         st.success(
             "Fiscal Year {} has been closed and locked.\n\n"

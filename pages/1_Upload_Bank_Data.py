@@ -77,13 +77,10 @@ if uploaded_files:
 
             # Normalize column names
             col_map = {}
+            date_cols = []
             for col in df.columns:
                 cl = col.strip().lower()
-                if "date" in cl and "post" in cl:
-                    col_map[col] = "post_date"
-                elif "date" in cl:
-                    col_map[col] = "post_date"
-                elif "desc" in cl:
+                if "desc" in cl:
                     col_map[col] = "description"
                 elif "debit" in cl:
                     col_map[col] = "debit"
@@ -95,12 +92,29 @@ if uploaded_files:
                     col_map[col] = "check"
                 elif "status" in cl:
                     col_map[col] = "status"
+                elif "date" in cl:
+                    date_cols.append(col)
+
+            # Map exactly ONE date column to post_date — preferring an explicit
+            # post/transaction date — so a file with multiple date columns (e.g.
+            # "Post Date" and "Effective Date") doesn't collide into a duplicate
+            # column that breaks parsing.
+            if date_cols:
+                preferred = next(
+                    (c for c in date_cols
+                     if "post" in c.strip().lower() or "trans" in c.strip().lower()),
+                    date_cols[0],
+                )
+                col_map[preferred] = "post_date"
 
             df = df.rename(columns=col_map)
 
-            # Parse and clean
+            # Parse and clean — coerce unparseable dates to NaT (a footer/subtotal
+            # row won't fail the whole upload; NaT rows are excluded downstream).
             if "post_date" in df.columns:
-                df["post_date"] = pd.to_datetime(df["post_date"], format="mixed")
+                df["post_date"] = pd.to_datetime(
+                    df["post_date"], format="mixed", errors="coerce"
+                )
             if "debit" in df.columns:
                 df["debit"] = pd.to_numeric(
                     df["debit"].astype(str).str.replace(",", "").str.replace("$", ""),

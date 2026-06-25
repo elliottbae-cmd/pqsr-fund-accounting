@@ -422,11 +422,14 @@ def generate_investor_report(
         styles['PageHeader']
     ))
 
-    # Build expense rows — show all non-zero categories
+    # Build expense rows — show all non-zero categories.
+    # NOTE: must include "Other" — it is a real IS account; omitting it (as the
+    # PDF previously did) overstates Net Income and makes the PDF disagree with
+    # the engine's CY Net Income and the Excel workbook whenever Other != 0.
     expense_categories = [
         "Interest Expense", "Appraisals", "Accounting & Tax Fees",
         "Bank Fees", "Taxes & Licenses", "Survey Fees",
-        "Origination Fee - Amort", "Depreciation Expense",
+        "Origination Fee - Amort", "Depreciation Expense", "Other",
     ]
     total_expenses = sum(is_accounts.get(k, 0) for k in expense_categories)
 

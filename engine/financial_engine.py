@@ -67,6 +67,14 @@ def roll_forward(journal_entries, as_of_date):
         while entry["date"].year > current_year:
             bs["Retained Earnings"] += bs["CY Net Income"]
             bs["CY Net Income"] = 0.0
+            # Reset the income statement to zero for the new year. The returned
+            # is_accts is consumed as the CURRENT-YEAR income statement (pages
+            # 4/5 compute quarter deltas assuming it resets at year-end), and CY
+            # Net Income below is recomputed from is_accts — without this reset
+            # prior-year activity would be double-counted in equity and inflate
+            # every subsequent year's YTD figures.
+            for _is_key in is_accts:
+                is_accts[_is_key] = 0.0
             current_year += 1
 
         # Apply debits

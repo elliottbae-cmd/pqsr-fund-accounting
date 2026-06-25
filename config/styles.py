@@ -240,7 +240,7 @@ def inject_custom_css():
 
 # Visible build marker — bump on each deploy so we can confirm from the UI
 # exactly which version Streamlit Cloud is actually running.
-APP_BUILD = "build dist-1"
+APP_BUILD = "build audit-1"
 
 
 def show_sidebar_branding():

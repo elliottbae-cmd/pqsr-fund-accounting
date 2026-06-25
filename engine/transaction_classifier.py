@@ -145,13 +145,16 @@ def detect_distribution_group(classified):
     invs = [(k, v["ownership_pct"]) for k, v in INVESTORS.items()
             if v["ownership_pct"] > 0]
 
-    # Only outgoing debits that aren't already firmly classified are candidates.
-    # accounting_fees is included because the generic ACH description is shared
-    # with real fee payments; unknown covers the channels we don't recognize.
+    # Only outgoing UNKNOWN debits are candidates. Real distributions hit the
+    # bank with a generic memo that falls through to "unknown"; actual fee
+    # payments carry an identifying memo (e.g. CBIZ) and are classified as
+    # accounting_fees. Excluding accounting_fees prevents a fee debit that
+    # happens to fall near an investor's distribution target from being hijacked
+    # into the group and displacing a real distribution.
     candidates = [
         i for i, t in enumerate(classified)
         if (t.get("debit", 0) or 0) > 0
-        and t.get("category") in ("accounting_fees", "unknown")
+        and t.get("category") == "unknown"
     ]
     if len(candidates) < 4:
         return {}
