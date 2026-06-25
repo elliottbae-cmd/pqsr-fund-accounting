@@ -82,12 +82,14 @@ def inject_custom_css():
         }
 
         /* ===== MAIN CONTENT TOP SPACING ===== */
-        /* Ensure the page header (first element) isn't clipped against the
-           top edge of the main container. */
+        /* Ensure the page header (first element) isn't clipped behind the
+           fixed top header bar. .block-container is the stable cross-version
+           class; the testids cover newer/older Streamlit builds. */
+        .block-container,
         [data-testid="stMainBlockContainer"],
-        [data-testid="stAppViewBlockContainer"],
-        .main .block-container {
-            padding-top: 3rem !important;
+        [data-testid="stAppViewContainer"] .block-container,
+        section.main > div.block-container {
+            padding-top: 4rem !important;
         }
 
         /* ===== PAGE HEADERS ===== */
