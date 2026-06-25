@@ -159,10 +159,27 @@ distribution_data = {
     "cumulative_by_investor": cumulative_by_investor,
 }
 
-# NOI history — add current quarter
-quarterly_noi = dict(QUARTERLY_NOI)
-current_noi = cash_flow.get("EBITDA", 0)
-quarterly_noi["Q{}'{}  NOI".format(quarter, str(year)[2:])] = current_noi  # noqa: key matches PDF layout
+# NOI history — build SINGLE-QUARTER NOI for each posted quarter.
+# The cash-flow snapshot stores YTD EBITDA, so one quarter's NOI is the YTD
+# EBITDA at that quarter-end minus the prior quarter-end's YTD EBITDA (Q1 has
+# no prior in its year, so YTD == the quarter). Using YTD EBITDA directly would
+# double-count (e.g. Q2 = H1) and, by only adding the selected quarter, would
+# skip intermediate quarters and break the trailing-12 window.
+quarterly_noi = dict(QUARTERLY_NOI)  # 2025 quarters (already single-quarter)
+
+def _ytd_ebitda(qp):
+    # Use the already-loaded snapshot for the selected period (handles the
+    # just-posted/session-state case); load from DB for prior quarters.
+    if qp == selected_period:
+        return cash_flow.get("EBITDA", 0)
+    return load_cash_flow(qp).get("EBITDA", 0)
+
+for qp in sorted(p for p in period_options if p <= selected_period):
+    q_n = (qp.month - 1) // 3 + 1
+    y_n = qp.year
+    prior_ytd = _ytd_ebitda(date(y_n, (q_n - 1) * 3, 1)) if q_n > 1 else 0
+    single_noi = _ytd_ebitda(qp) - prior_ytd
+    quarterly_noi["Q{}'{}  NOI".format(q_n, str(y_n)[2:])] = single_noi  # noqa: key matches PDF layout
 
 # Keep only last 4 quarters for T-12
 if len(quarterly_noi) > 4:
