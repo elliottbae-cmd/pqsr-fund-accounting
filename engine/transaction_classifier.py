@@ -89,17 +89,14 @@ def classify_transaction(description, debit, credit):
                 result["details"] = "Accounting & Tax Fees (CBIZ)"
             return result
 
-    # Online transfers IN (credits) reimburse the accounting/tax fees that were
-    # paid via "PQSR FUND I LLC ACH" debits. Classifying them as accounting_fees
-    # lets the journal-entry logic net them against the matching debits (→ $0).
-    if re.search(r"(?i)ONLINE\s*XFER", description) and credit > 0:
-        return {
-            "category": "accounting_fees",
-            "property": None,
-            "investor": None,
-            "confidence": "auto",
-            "details": "Accounting & Tax Fee reimbursement (online transfer in)",
-        }
+    # NOTE: "ONLINE XFER" transactions are intentionally NOT auto-classified.
+    # An earlier rule auto-booked ONLINE XFER credits as accounting-fee
+    # reimbursements, which worked for small fee-reimbursement pairs but
+    # misclassified unrelated transfers (e.g. a $50k transfer-in). Per Bret
+    # (2026-08-11): every online transfer must be manually assigned. They fall
+    # through to "unknown" below. (Outgoing ONLINE XFER debits that are part of
+    # a proportional distribution group are still caught by
+    # detect_distribution_group — that auto-detection is intentional.)
 
     # For RAM-Z CUSTARD ACH payments, match by credit amount to identify the
     # property. Use a small tolerance (the five rents are all >$130 apart, so $1
