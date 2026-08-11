@@ -140,11 +140,15 @@ if st.button("Post Journal Entries & Save to Database", type="primary"):
         prior_entries = load_all_journal_entries_through(
             date(processing_month.year, processing_month.month, 1)
         )
-        # Filter out any entries from the current month (in case of re-post)
+        # Filter out only the current month's 'monthly' entries (they are being
+        # regenerated right now, so keeping them would double-count on re-post).
+        # Depreciation and manual AJEs for this month must STAY in the roll —
+        # they were booked through their own flows and are not regenerated here.
         prior_entries = [
             e for e in prior_entries
             if not (e["date"].year == processing_month.year
-                    and e["date"].month == processing_month.month)
+                    and e["date"].month == processing_month.month
+                    and e.get("entry_type", "monthly") == "monthly")
         ]
         all_entries = prior_entries + entries
 

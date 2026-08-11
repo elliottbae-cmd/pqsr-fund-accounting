@@ -246,15 +246,16 @@ if st.button(
         # Load existing transactions for this period (don't overwrite them)
         existing_txns = load_transactions(selected["period_date"])
 
-        # Load existing NON-DEPRECIATION journal entries for this period.
-        # Depreciation was already saved by save_depreciation_journal_entry() above,
-        # so we exclude it here to prevent save_period() from creating a duplicate.
+        # Load only the period's 'monthly' journal entries for the re-save.
+        # Depreciation was already saved by save_depreciation_journal_entry()
+        # above, and manual AJEs are never deleted by save_period — including
+        # either here would create duplicates.
         period_entries = [
             e for e in all_entries
             if hasattr(e.get("date"), "year")
             and e["date"].year == selected["period_date"].year
             and e["date"].month == selected["period_date"].month
-            and e.get("entry_type") != "depreciation"
+            and e.get("entry_type") not in ("depreciation", "manual")
         ]
 
         # Re-save the period with updated financials

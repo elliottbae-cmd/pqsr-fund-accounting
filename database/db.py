@@ -145,9 +145,11 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
                  txn.get("details"))
             )
 
-        # 3. Journal entries — delete old non-depreciation entries
+        # 3. Journal entries — delete only the regenerated 'monthly' entries.
+        # 'depreciation' and 'manual' entries are booked through their own flows
+        # and must SURVIVE a re-post of the month.
         old_ids = _fetchall(conn,
-            "SELECT id FROM journal_entries WHERE period_date = %s AND entry_type != 'depreciation'",
+            "SELECT id FROM journal_entries WHERE period_date = %s AND entry_type = 'monthly'",
             (pd_str,))
         old_id_list = [r["id"] for r in old_ids]
         if old_id_list:
@@ -156,7 +158,7 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
                 (old_id_list,)
             )
             cur.execute(
-                "DELETE FROM journal_entries WHERE period_date = %s AND entry_type != 'depreciation'",
+                "DELETE FROM journal_entries WHERE period_date = %s AND entry_type = 'monthly'",
                 (pd_str,)
             )
 
@@ -166,7 +168,11 @@ def save_period(period_date, transactions, journal_entries, bs, is_accounts,
                 entry_date_str = entry_date.isoformat()
             else:
                 entry_date_str = str(entry_date)
-            entry_type = "depreciation" if "depreciation" in entry["description"].lower() else "monthly"
+            # Preserve an explicit entry_type (entries reloaded from the DB carry
+            # one); otherwise derive it from the description.
+            entry_type = entry.get("entry_type")
+            if not entry_type:
+                entry_type = "depreciation" if "depreciation" in entry["description"].lower() else "monthly"
             cur.execute(
                 "INSERT INTO journal_entries (period_date, entry_date, description, entry_type) "
                 "VALUES (%s, %s, %s, %s) RETURNING id",
@@ -575,6 +581,92 @@ def save_depreciation_journal_entry(quarter_end_date, entry):
                 (entry_id, acct, amt)
             )
     st.cache_data.clear()
+
+
+# --- Manual Journal Entries ---
+
+def save_manual_journal_entry(entry_date, description, debits, credits):
+    """Save a user-authored AJE with entry_type='manual'.
+
+    Manual entries survive re-posts of their month (save_period only deletes
+    'monthly' entries) and are included in every roll-forward via
+    load_all_journal_entries_through.
+    """
+    if is_year_closed(entry_date.year):
+        raise ValueError(
+            "Year {} is closed. Cannot book entries in a closed year.".format(
+                entry_date.year
+            )
+        )
+    pd_str = date(entry_date.year, entry_date.month, 1).isoformat()
+    with get_connection() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "INSERT INTO journal_entries (period_date, entry_date, description, entry_type) "
+            "VALUES (%s, %s, %s, 'manual') RETURNING id",
+            (pd_str, entry_date.isoformat(), description)
+        )
+        entry_id = cur.fetchone()[0]
+        for acct, amt in debits.items():
+            cur.execute(
+                "INSERT INTO journal_entry_lines (entry_id, account, debit_amount) "
+                "VALUES (%s, %s, %s)",
+                (entry_id, acct, amt)
+            )
+        for acct, amt in credits.items():
+            cur.execute(
+                "INSERT INTO journal_entry_lines (entry_id, account, credit_amount) "
+                "VALUES (%s, %s, %s)",
+                (entry_id, acct, amt)
+            )
+    st.cache_data.clear()
+    return entry_id
+
+
+def delete_manual_journal_entry(entry_id):
+    """Delete a manual AJE (and its lines). Only entry_type='manual' rows can
+    be deleted this way; refuses entries in closed years."""
+    with get_connection() as conn:
+        row = _fetchone(conn,
+            "SELECT entry_date, entry_type FROM journal_entries WHERE id = %s",
+            (entry_id,))
+        if row is None or row["entry_type"] != "manual":
+            raise ValueError("Entry {} is not a manual journal entry.".format(entry_id))
+        if is_year_closed(date.fromisoformat(row["entry_date"]).year):
+            raise ValueError("Cannot delete an entry in a closed year.")
+        cur = conn.cursor()
+        cur.execute("DELETE FROM journal_entry_lines WHERE entry_id = %s", (entry_id,))
+        cur.execute("DELETE FROM journal_entries WHERE id = %s", (entry_id,))
+    st.cache_data.clear()
+
+
+@st.cache_data(ttl=60)
+def load_manual_entries():
+    """Return all manual AJEs (with id, so they can be deleted) sorted by date."""
+    with get_connection() as conn:
+        entries = _fetchall(conn,
+            "SELECT * FROM journal_entries WHERE entry_type = 'manual' ORDER BY entry_date")
+        result = []
+        for entry in entries:
+            lines = _fetchall(conn,
+                "SELECT * FROM journal_entry_lines WHERE entry_id = %s",
+                (entry["id"],))
+            debits = {}
+            credits = {}
+            for line in lines:
+                if line["debit_amount"] and line["debit_amount"] > 0:
+                    debits[line["account"]] = line["debit_amount"]
+                if line["credit_amount"] and line["credit_amount"] > 0:
+                    credits[line["account"]] = line["credit_amount"]
+            result.append({
+                "id": entry["id"],
+                "period_date": entry["period_date"],
+                "date": date.fromisoformat(entry["entry_date"]),
+                "description": entry["description"],
+                "debits": debits,
+                "credits": credits,
+            })
+    return result
 
 
 # --- Year-End Close ---
