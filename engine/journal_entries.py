@@ -27,6 +27,7 @@ def generate_monthly_ajes(classified_transactions, month_date):
     loan_payment_fallback = 0.0  # actual debit(s) with no amortization-row match
     distributions = {}
     expenses = {}
+    due_to_psp_net = 0.0  # + = paid down (bank debit), - = funded (bank credit)
     cash_in = 0.0
     cash_out = 0.0
 
@@ -54,6 +55,13 @@ def generate_monthly_ajes(classified_transactions, month_date):
         elif txn["category"] == "distribution":
             inv_key = txn["investor"]
             distributions[inv_key] = distributions.get(inv_key, 0) + debit
+
+        elif txn["category"] == "due_to_psp":
+            # Movement on the "Due to PSP Investments, LLC" liability — a
+            # balance-sheet transfer, never income or expense. Money out (bank
+            # debit) pays the liability down; money in (bank credit) increases
+            # what the fund owes PSP.
+            due_to_psp_net += debit - credit
 
         elif txn["category"] == "accounting_fees":
             # Net debits and credits for multi-fund invoices
@@ -103,6 +111,16 @@ def generate_monthly_ajes(classified_transactions, month_date):
     for inv_key, amount in distributions.items():
         debits["Distributions - {}".format(inv_key)] = amount
         credits["Cash"] = credits.get("Cash", 0) + amount
+
+    # Due to PSP Investments, LLC (balance-sheet liability movement)
+    if due_to_psp_net > 0:
+        # Net cash OUT to PSP — pay down the liability
+        debits["Due to PSP Investments, LLC"] = due_to_psp_net
+        credits["Cash"] = credits.get("Cash", 0) + due_to_psp_net
+    elif due_to_psp_net < 0:
+        # Net cash IN from PSP — liability increases
+        debits["Cash"] = debits.get("Cash", 0) + abs(due_to_psp_net)
+        credits["Due to PSP Investments, LLC"] = abs(due_to_psp_net)
 
     # Expenses
     for exp_name, amount in expenses.items():

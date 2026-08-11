@@ -304,14 +304,19 @@ if uploaded_files:
                     date_label, desc_label, amt_label
                 )
 
-                # Options = expense categories plus a "Distribution - <investor>"
-                # choice for each owner, so generic-memo debits that are actually
-                # distributions can be assigned to the correct investor by hand.
+                # Options = expense categories, the Due to PSP liability, plus a
+                # "Distribution - <investor>" choice for each owner, so
+                # generic-memo transactions can be assigned correctly by hand.
                 dist_label_to_key = {
                     "Distribution - {}".format(INVESTORS[k]["full_name"]): k
                     for k in INVESTORS
                 }
-                category_options = EXPENSE_CATEGORIES + list(dist_label_to_key.keys())
+                DUE_TO_PSP_LABEL = "Due to PSP Investments, LLC"
+                category_options = (
+                    EXPENSE_CATEGORIES
+                    + [DUE_TO_PSP_LABEL]
+                    + list(dist_label_to_key.keys())
+                )
 
                 with st.expander(expander_label):
                     category = st.selectbox(
@@ -329,6 +334,16 @@ if uploaded_files:
                             txn["details"] = "Distribution - {} (manually classified)".format(
                                 INVESTORS[inv_key]["full_name"]
                             )
+                        elif category == DUE_TO_PSP_LABEL:
+                            # Balance-sheet movement on the Due to PSP liability:
+                            # credit txn (money in) increases the liability,
+                            # debit txn (money out) pays it down. Never touches
+                            # the income statement.
+                            txn["category"] = "due_to_psp"
+                            txn["property"] = None
+                            txn["investor"] = None
+                            txn["confidence"] = "manual_classified"
+                            txn["details"] = "Due to PSP Investments, LLC (manually classified)"
                         else:
                             txn["category"] = category.lower().replace(
                                 " & ", "_"
