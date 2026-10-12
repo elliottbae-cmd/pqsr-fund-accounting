@@ -98,11 +98,15 @@ def classify_transaction(description, debit, credit):
     # a proportional distribution group are still caught by
     # detect_distribution_group — that auto-detection is intentional.)
 
-    # For RAM-Z CUSTARD ACH payments, match by credit amount to identify the
+    # For RAM-Z CUSTARD payments, match by credit amount to identify the
     # property. Use a small tolerance (the five rents are all >$130 apart, so $1
     # is unambiguous) so a payment a few cents off (rounding / CAM drift) still
     # auto-matches instead of dropping to manual. Pick the closest property.
-    if re.search(r"(?i)RAM-Z CUSTARD.*ACH", description) and credit > 0:
+    # NOTE: deliberately does NOT require "ACH" in the memo — the bank changed
+    # the format in Sept 2026 from "RAM-Z CUSTARD ACH Paymen ..." to
+    # "RAM-Z CUSTARD RE-00xx ...", which broke the old pattern. The amount is
+    # the real identifier; the RAM-Z CUSTARD prefix just scopes it to the tenant.
+    if re.search(r"(?i)RAM-Z CUSTARD", description) and credit > 0:
         best_key, best_diff = None, None
         for key, p in PROPERTIES.items():
             diff = abs(p["monthly_rent"] - credit)

@@ -304,16 +304,22 @@ if uploaded_files:
                     date_label, desc_label, amt_label
                 )
 
-                # Options = expense categories, the Due to PSP liability, plus a
-                # "Distribution - <investor>" choice for each owner, so
-                # generic-memo transactions can be assigned correctly by hand.
+                # Options = per-property rent, expense categories, the Due to
+                # PSP liability, plus a "Distribution - <investor>" choice for
+                # each owner, so any transaction the auto-classifier misses
+                # (e.g. a bank memo format change) can be assigned by hand.
+                rent_label_to_key = {
+                    "Rent - {}".format(PROPERTIES[k]["name"]): k
+                    for k in PROPERTIES
+                }
                 dist_label_to_key = {
                     "Distribution - {}".format(INVESTORS[k]["full_name"]): k
                     for k in INVESTORS
                 }
                 DUE_TO_PSP_LABEL = "Due to PSP Investments, LLC"
                 category_options = (
-                    EXPENSE_CATEGORIES
+                    list(rent_label_to_key.keys())
+                    + EXPENSE_CATEGORIES
                     + [DUE_TO_PSP_LABEL]
                     + list(dist_label_to_key.keys())
                 )
@@ -325,7 +331,16 @@ if uploaded_files:
                         key="cat_{}".format(i),
                     )
                     if st.button("Apply", key="apply_{}".format(i)):
-                        if category in dist_label_to_key:
+                        if category in rent_label_to_key:
+                            prop_key = rent_label_to_key[category]
+                            txn["category"] = "rent"
+                            txn["property"] = prop_key
+                            txn["investor"] = None
+                            txn["confidence"] = "manual_classified"
+                            txn["details"] = "Rent - {} (manually classified)".format(
+                                PROPERTIES[prop_key]["name"]
+                            )
+                        elif category in dist_label_to_key:
                             inv_key = dist_label_to_key[category]
                             txn["category"] = "distribution"
                             txn["investor"] = inv_key
