@@ -83,6 +83,7 @@ def generate_excel_workbook(bs, is_accounts, cash_flow, totals, distribution_dat
     _write_row(ws_bs, r, "Note Payable - BBV", bs["Note Payable - BBV"]); r += 1
     _write_row(ws_bs, r, "Due to PSP Investments, LLC", bs["Due to PSP Investments, LLC"]); r += 1
     _write_row(ws_bs, r, "Deferred Rental Revenue", bs["Deferred Rental Revenue"]); r += 1
+    _write_row(ws_bs, r, "Distributions Payable", bs.get("Distributions Payable", 0)); r += 1
     _write_row(ws_bs, r, "Total Liabilities", totals["total_liabilities"], bold=True); r += 2
 
     ws_bs.cell(row=r, column=1, value="MEMBERS' EQUITY").font = BOLD_FONT; r += 1

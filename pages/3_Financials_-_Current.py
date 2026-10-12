@@ -165,10 +165,12 @@ with tab1:
     st.markdown("##### LIABILITIES")
     note_payable = bs.get("Note Payable - BBV", 0)
     due_to_psp = bs.get("Due to PSP Investments, LLC", 0)
+    dist_payable = bs.get("Distributions Payable", 0)
     total_liab = totals_data.get("total_liabilities", 0)
     liab_data = [
         ["Note Payable - BBV", "${:,.2f}".format(note_payable)],
         ["Due to PSP Investments, LLC", "${:,.2f}".format(due_to_psp)],
+        ["Distributions Payable", "${:,.2f}".format(dist_payable)],
         ["**Total Liabilities**", "**${:,.2f}**".format(total_liab)],
     ]
     st.dataframe(

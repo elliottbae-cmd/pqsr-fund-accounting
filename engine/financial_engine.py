@@ -23,6 +23,7 @@ DEBIT_SIGN = {
     "Note Payable - BBV": -1,
     "Due to PSP Investments, LLC": -1,
     "Deferred Rental Revenue": -1,
+    "Distributions Payable": -1,
 
     # Equity - contributions (stored positive): debit decreases
     "Contributions - PSP Inv": -1, "Contributions - KCYUM": -1,
@@ -125,6 +126,8 @@ def compute_totals(bs):
         bs["Note Payable - BBV"]
         + bs["Due to PSP Investments, LLC"]
         + bs["Deferred Rental Revenue"]
+        # .get: snapshots saved before 10/2026 don't carry this account
+        + bs.get("Distributions Payable", 0)
     )
 
     equity_items = (

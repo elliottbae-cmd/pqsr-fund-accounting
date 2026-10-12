@@ -186,11 +186,20 @@ def detect_distribution_group(classified):
     return best if len(best) >= 4 else {}
 
 
-def classify_bank_data(transactions):
+def classify_bank_data(transactions, distributions_payable_balance=0.0):
     """Classify a list of bank transactions.
 
     Each transaction should be a dict with: date, description, debit, credit.
     Returns the same list with classification info added.
+
+    distributions_payable_balance: the "Distributions Payable" balance from the
+    most recently posted balance sheet. When a quarter's distributions were
+    DECLARED at quarter-end (Dr Distributions - <inv> / Cr Distributions
+    Payable) and the cash goes out the following month, the payment debits
+    would otherwise be re-detected as a distribution group and double-count
+    equity. If the detected group's total matches the outstanding payable, the
+    group is booked as a payable payment (Dr Distributions Payable / Cr Cash)
+    instead.
     """
     classified = []
     for txn in transactions:
@@ -201,17 +210,38 @@ def classify_bank_data(transactions):
         )
         classified.append({**txn, **classification})
 
-    # Post-pass: reassign any ownership-proportional debit group to distributions.
-    for idx, inv_key in detect_distribution_group(classified).items():
-        inv = INVESTORS[inv_key]
-        classified[idx].update({
-            "category": "distribution",
-            "investor": inv_key,
-            "property": None,
-            "confidence": "auto",
-            "details": "Distribution - {} (matched by amount/ownership)".format(
-                inv["full_name"]
-            ),
-        })
+    # Post-pass: reassign any ownership-proportional debit group to
+    # distributions — or, if it pays off a declared Distributions Payable
+    # balance, to payable payments.
+    group = detect_distribution_group(classified)
+    if group:
+        group_total = sum(classified[i].get("debit", 0) or 0 for i in group)
+        pay_bal = distributions_payable_balance or 0.0
+        pays_declared = (
+            pay_bal > 0
+            and abs(group_total - pay_bal) <= max(1.00, pay_bal * 0.005)
+        )
+        for idx, inv_key in group.items():
+            inv = INVESTORS[inv_key]
+            if pays_declared:
+                classified[idx].update({
+                    "category": "dist_payable",
+                    "investor": inv_key,
+                    "property": None,
+                    "confidence": "auto",
+                    "details": "Payment of declared distribution - {} (Distributions Payable)".format(
+                        inv["full_name"]
+                    ),
+                })
+            else:
+                classified[idx].update({
+                    "category": "distribution",
+                    "investor": inv_key,
+                    "property": None,
+                    "confidence": "auto",
+                    "details": "Distribution - {} (matched by amount/ownership)".format(
+                        inv["full_name"]
+                    ),
+                })
 
     return classified

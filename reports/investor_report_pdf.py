@@ -372,6 +372,7 @@ def generate_investor_report(
         ["Note Payable - BBV", _fmt2(bs["Note Payable - BBV"])],
         ["Due to PSP Investments, LLC", _fmt2(bs["Due to PSP Investments, LLC"])],
         ["Deferred Rental Revenue", _fmt(bs["Deferred Rental Revenue"])],
+        ["Distributions Payable", _fmt(bs.get("Distributions Payable", 0))],
         ["Total Liabilities", _fmt(totals["total_liabilities"])],
     ]
 

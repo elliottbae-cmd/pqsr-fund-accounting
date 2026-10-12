@@ -8,7 +8,10 @@ import pandas as pd
 from datetime import date, datetime
 from engine.transaction_classifier import classify_bank_data
 from config.fund_config import EXPENSE_CATEGORIES, PROPERTIES, INVESTORS
-from database.db import get_next_expected_month, get_posted_periods, is_period_posted
+from database.db import (
+    get_next_expected_month, get_posted_periods, is_period_posted,
+    load_balance_sheet,
+)
 from config.styles import inject_custom_css, show_sidebar_branding, styled_page_header, styled_section_header, styled_divider, format_currency
 
 inject_custom_css()
@@ -190,7 +193,18 @@ if uploaded_files:
                 and len(st.session_state.classified_transactions) == len(month_transactions)):
             classified = st.session_state.classified_transactions
         else:
-            classified = classify_bank_data(month_transactions)
+            # Outstanding Distributions Payable from the last posted month: if
+            # this month's proportional distribution-group debits pay off a
+            # quarter-end declaration, they must clear the payable rather than
+            # book equity again.
+            dist_payable_bal = 0.0
+            if posted:
+                prior_bs = load_balance_sheet(posted[-1]["period_date"])
+                dist_payable_bal = prior_bs.get("Distributions Payable", 0) or 0.0
+            classified = classify_bank_data(
+                month_transactions,
+                distributions_payable_balance=dist_payable_bal,
+            )
             st.session_state.classified_transactions = classified
             st.session_state.processing_month = next_month
 
@@ -317,10 +331,11 @@ if uploaded_files:
                     for k in INVESTORS
                 }
                 DUE_TO_PSP_LABEL = "Due to PSP Investments, LLC"
+                DIST_PAYABLE_LABEL = "Distributions Payable (payment of declared dist.)"
                 category_options = (
                     list(rent_label_to_key.keys())
                     + EXPENSE_CATEGORIES
-                    + [DUE_TO_PSP_LABEL]
+                    + [DUE_TO_PSP_LABEL, DIST_PAYABLE_LABEL]
                     + list(dist_label_to_key.keys())
                 )
 
@@ -349,6 +364,15 @@ if uploaded_files:
                             txn["details"] = "Distribution - {} (manually classified)".format(
                                 INVESTORS[inv_key]["full_name"]
                             )
+                        elif category == DIST_PAYABLE_LABEL:
+                            # Clears a quarter-end distribution declaration:
+                            # Dr Distributions Payable / Cr Cash. Equity was
+                            # already hit by the declaration AJE.
+                            txn["category"] = "dist_payable"
+                            txn["property"] = None
+                            txn["investor"] = None
+                            txn["confidence"] = "manual_classified"
+                            txn["details"] = "Distributions Payable payment (manually classified)"
                         elif category == DUE_TO_PSP_LABEL:
                             # Balance-sheet movement on the Due to PSP liability:
                             # credit txn (money in) increases the liability,

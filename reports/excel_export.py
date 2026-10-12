@@ -185,6 +185,7 @@ def export_current_financials(bs, is_accounts, cash_flow, totals, as_of_date, fu
     _bs_row("Note Payable - BBV", bs.get("Note Payable - BBV", 0))
     _bs_row("Due to PSP Investments, LLC", bs.get("Due to PSP Investments, LLC", 0))
     _bs_row("Deferred Rental Revenue", bs.get("Deferred Rental Revenue", 0))
+    _bs_row("Distributions Payable", bs.get("Distributions Payable", 0))
     _bs_row("Total Liabilities", totals.get("total_liabilities", 0), total=True)
     r += 1
 
@@ -310,6 +311,7 @@ def export_monthly_financials(
         ("LIABILITIES", None, True),
         ("Note Payable - BBV", "Note Payable - BBV", False),
         ("Due to PSP Investments, LLC", "Due to PSP Investments, LLC", False),
+        ("Distributions Payable", "Distributions Payable", False),
         ("MEMBERS' EQUITY", None, True),
     ]
     for inv_key in investors:
@@ -609,6 +611,7 @@ def export_financial_history(
         ("Accumulated Amortization", "Accumulated Amortization"),
         ("Note Payable - BBV", "Note Payable - BBV"),
         ("Due to PSP Investments, LLC", "Due to PSP Investments, LLC"),
+        ("Distributions Payable", "Distributions Payable"),
         ("CY Net Income", "CY Net Income"),
         ("Retained Earnings", "Retained Earnings"),
     ]

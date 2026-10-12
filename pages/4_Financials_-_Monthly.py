@@ -181,6 +181,7 @@ with tab_bs:
         ("**LIABILITIES**", None),
         ("Note Payable - BBV", "Note Payable - BBV"),
         ("Due to PSP Investments, LLC", "Due to PSP Investments, LLC"),
+        ("Distributions Payable", "Distributions Payable"),
         ("", None),
         ("**MEMBERS' EQUITY**", None),
     ]

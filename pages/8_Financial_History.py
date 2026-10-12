@@ -161,6 +161,7 @@ with tabs[0]:
         ("Note Payable - BBV", "Note Payable - BBV"),
         ("Due to PSP Investments, LLC", "Due to PSP Investments, LLC"),
         ("Deferred Rental Revenue", "Deferred Rental Revenue"),
+        ("Distributions Payable", "Distributions Payable"),
         ("**Total Liabilities**", None),
         ("", None),
         ("MEMBERS' EQUITY", None),
@@ -187,7 +188,7 @@ with tabs[0]:
     # Pre-compute baseline totals once
     fa_keys = ["Land", "Building", "Land Improvements", "F&F", "Equipment", "Signage",
                "Building A/D", "Land Improvements A/D", "F&F A/D", "Equipment A/D", "Signage A/D"]
-    liab_keys = ["Note Payable - BBV", "Due to PSP Investments, LLC", "Deferred Rental Revenue"]
+    liab_keys = ["Note Payable - BBV", "Due to PSP Investments, LLC", "Deferred Rental Revenue", "Distributions Payable"]
     fa_beg = sum(baseline.get(k, 0) for k in fa_keys)
     oa_beg = baseline.get("Capitalized Origination Fee", 0) + baseline.get("Accumulated Amortization", 0)
     ta_beg = baseline.get("Cash", 0) + fa_beg + oa_beg

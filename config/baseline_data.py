@@ -35,6 +35,10 @@ BALANCE_SHEET = {
     "Note Payable - BBV": 9617873.286513,
     "Due to PSP Investments, LLC": 50056.34,
     "Deferred Rental Revenue": 0.00,
+    # Distributions declared at quarter-end but paid after (e.g. Q3 2026 paid
+    # 10/12). Declaration AJE: Dr Distributions - <inv> / Cr this account.
+    # Payment: Dr this account / Cr Cash. Added 10/2026; baseline is zero.
+    "Distributions Payable": 0.00,
 
     # MEMBERS' EQUITY
     "Contributions - PSP Inv": 2623048.59,

@@ -28,6 +28,7 @@ def generate_monthly_ajes(classified_transactions, month_date):
     distributions = {}
     expenses = {}
     due_to_psp_net = 0.0  # + = paid down (bank debit), - = funded (bank credit)
+    dist_payable_net = 0.0  # + = payable paid down (bank debit = cash out)
     cash_in = 0.0
     cash_out = 0.0
 
@@ -55,6 +56,14 @@ def generate_monthly_ajes(classified_transactions, month_date):
         elif txn["category"] == "distribution":
             inv_key = txn["investor"]
             distributions[inv_key] = distributions.get(inv_key, 0) + debit
+
+        elif txn["category"] == "dist_payable":
+            # Cash payment of a distribution DECLARED in an earlier month via a
+            # 9/30-style declaration AJE (Dr Distributions - <inv> / Cr
+            # Distributions Payable). The equity hit already happened at
+            # declaration, so the payment only clears the liability — booking it
+            # as a direct distribution here would double-count equity.
+            dist_payable_net += debit - credit
 
         elif txn["category"] == "due_to_psp":
             # Movement on the "Due to PSP Investments, LLC" liability — a
@@ -111,6 +120,14 @@ def generate_monthly_ajes(classified_transactions, month_date):
     for inv_key, amount in distributions.items():
         debits["Distributions - {}".format(inv_key)] = amount
         credits["Cash"] = credits.get("Cash", 0) + amount
+
+    # Distributions Payable (payment of previously declared distributions)
+    if dist_payable_net > 0:
+        debits["Distributions Payable"] = dist_payable_net
+        credits["Cash"] = credits.get("Cash", 0) + dist_payable_net
+    elif dist_payable_net < 0:
+        debits["Cash"] = debits.get("Cash", 0) + abs(dist_payable_net)
+        credits["Distributions Payable"] = abs(dist_payable_net)
 
     # Due to PSP Investments, LLC (balance-sheet liability movement)
     if due_to_psp_net > 0:
