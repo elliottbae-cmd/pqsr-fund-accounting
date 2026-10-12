@@ -95,7 +95,18 @@ st.markdown(
 # --- Entry form ---
 col1, col2 = st.columns([1, 3])
 with col1:
-    entry_date = st.date_input("Entry Date", value=date.today(), key="aje_date")
+    # format="MM/DD/YYYY" so typed US-style dates (e.g. 9/30/2026) are accepted —
+    # Streamlit's default is YYYY/MM/DD, which silently rejects US-style typing
+    # and snaps back to today, making backdating look blocked. Explicit bounds
+    # keep entries within the app's accounting life (post-baseline, not future).
+    entry_date = st.date_input(
+        "Entry Date",
+        value=date.today(),
+        min_value=date(2026, 1, 1),
+        max_value=date.today(),
+        format="MM/DD/YYYY",
+        key="aje_date",
+    )
 with col2:
     description = st.text_input(
         "Description", key="aje_desc",
